@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#ec4899" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="我们的小窝" />
+  <link rel="manifest" href="./manifest.json" />
+  <title>小盘子 & 小果子的小窝 · LDR Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            blush: { 50: '#fdf2f8', 100: '#fce7f3', 200: '#fbcfe8', 300: '#f9a8d4', 400: '#f472b6', 500: '#ec4899' },
+            cream: { 50: '#fefce8', 100: '#fef9c3', 200: '#fef08a' },
+            lavender: { 50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe', 300: '#c4b5fd' },
+            soft: { 50: '#fafafa', 100: '#f4f4f5', 200: '#e4e4e7' }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Playfair Display', 'serif']
+          },
+          animation: {
+            'float': 'float 3s ease-in-out infinite',
+            'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
+            'heart-burst': 'heart-burst 1.2s ease-out forwards',
+            'fade-in': 'fade-in 0.4s ease-out'
+          },
+          keyframes: {
+            float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
+            'pulse-soft': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.7 } },
+            'heart-burst': {
+              '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+              '50%': { transform: 'scale(1.4) rotate(15deg)', opacity: 0.9 },
+              '100%': { transform: 'scale(1.8) translateY(-80px) rotate(-10deg)', opacity: 0 }
+            },
+            'fade-in': { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 50%, #fefce8 100%); min-height: 100vh; }
+    .glass { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.6); }
+    .card { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(236,72,153,0.15); }
+    .heart-particle { position: fixed; pointer-events: none; z-index: 9999; font-size: 24px; animation: heart-burst 1.2s ease-out forwards; }
+    .blur-answer { filter: blur(6px); user-select: none; transition: filter 0.4s; }
+    .blur-answer.revealed { filter: none; }
+    .schedule-slot { min-height: 26px; cursor: pointer; transition: all 0.2s; }
+    .schedule-slot:hover { transform: scale(1.02); }
+    .todo-item.completed { opacity: 0.55; }
+    .todo-item.completed .todo-text { text-decoration: line-through; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #f9a8d4; border-radius: 3px; }
+    .chart-bar { transition: height 0.6s ease; }
+    .sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .sync-dot.online { background: #34d399; box-shadow: 0 0 6px #34d399; }
+    .sync-dot.offline { background: #f87171; }
+    .sync-dot.syncing { background: #fbbf24; animation: pulse-soft 1s infinite; }
+    @media (max-width: 640px) { .header-clocks { font-size: 0.75rem; } }
+  </style>
+</head>
+<body class="font-sans text-zinc-700 antialiased">
+  <div id="hearts-container"></div>
+
+  <header class="sticky top-0 z-50 glass border-b border-pink-100/50">
+    <div class="max-w-6xl mx-auto px-4 py-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">💕</span>
+          <h1 class="font-display text-base sm:text-xl font-semibold text-pink-600 tracking-tight">小盘子 & 小果子</h1>
+        </div>
+        <div class="flex items-center gap-3 sm:gap-6 header-clocks">
+          <div class="text-center">
+            <div class="flex items-center gap-1 justify-center">
+              <span id="china-icon" class="text-base">☀️</span>
+              <span class="text-xs text-zinc-500 font-medium">小盘子 · <span id="header-panzi-loc">北京</span></span>
+            </div>
+            <div id="china-time" class="font-semibold text-sm sm:text-base text-zinc-800 tabular-nums">--:--</div>
+            <div id="china-date" class="text-[10px] text-zinc-400"></div>
+          </div>
+          <div class="w-px h-8 bg-pink-200"></div>
+          <div class="text-center">
+            <div class="flex items-center gap-1 justify-center">
+              <span id="london-icon" class="text-base">🌙</span>
+              <span class="text-xs text-zinc-500 font-medium">小果子 · <span id="header-guozi-loc">伦敦</span></span>
+            </div>
+            <div id="london-time" class="font-semibold text-sm sm:text-base text-zinc-800 tabular-nums">--:--</div>
+            <div id="london-date" class="text-[10px] text-zinc-400"></div>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center justify-center gap-2 mt-2 text-xs flex-wrap">
+        <span id="sync-dot" class="sync-dot offline"></span>
+        <span id="sync-status" class="text-zinc-500">未连接云端</span>
+        <button onclick="document.getElementById('firebase-setup').classList.toggle('hidden')" class="text-pink-500 underline ml-1">配置同步</button>
+        <button onclick="enableNotifications()" class="text-violet-500 underline ml-1">开启通知</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="firebase-setup" class="hidden max-w-6xl mx-auto px-4 pt-4">
+    <div class="glass rounded-2xl p-5 border border-pink-200">
+      <h3 class="font-semibold text-pink-600 mb-3">☁️ 配置实时同步（只需做一次）</h3>
+      <ol class="text-sm text-zinc-600 space-y-2 mb-4 list-decimal list-inside leading-relaxed">
+        <li>打开 <a href="https://console.firebase.google.com/" target="_blank" class="text-pink-500 underline">Firebase 控制台</a>，用 Google 账号登录</li>
+        <li>点击「添加项目」→ 名字随便写（如 panzi-guozi）→ 创建（分析可关掉）</li>
+        <li>左侧点「Realtime Database」→「创建数据库」→ 选「开始于测试模式」→ 完成</li>
+        <li>回到项目概览 → 点网页图标「</>」添加 Web 应用 → 注册后复制整个 <code class="bg-soft-100 px-1 rounded">firebaseConfig</code></li>
+        <li>把下面文本框替换成你自己的配置，点「保存并连接」</li>
+      </ol>
+      <textarea id="firebase-config-input" rows="8" class="w-full rounded-xl border border-pink-100 p-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-pink-300" placeholder='{
+  apiKey: "AIza...",
+  authDomain: "xxx.firebaseapp.com",
+  databaseURL: "https://xxx.firebasedatabase.app",
+  projectId: "xxx",
+  storageBucket: "xxx.appspot.com",
+  messagingSenderId: "123",
+  appId: "1:123:web:abc"
+}'></textarea>
+      <div class="flex gap-2 mt-3">
+        <button onclick="saveFirebaseConfig()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition">保存并连接</button>
+        <button onclick="document.getElementById('firebase-setup').classList.add('hidden')" class="bg-soft-200 text-zinc-600 px-4 py-2 rounded-xl text-sm">关闭</button>
+      </div>
+      <p class="text-[11px] text-zinc-400 mt-3">数据库保持测试模式即可（仅你们两人使用）。配置保存在本机浏览器。</p>
+    </div>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-6 pb-24">
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="md:col-span-2 grid grid-cols-2 gap-3">
+        <div class="glass rounded-2xl p-4 card">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-zinc-600">🇨🇳 小盘子 · <span id="weather-panzi-loc">北京</span></span>
+            <span id="china-weather-icon" class="text-2xl">🌤️</span>
+          </div>
+          <div id="china-temp" class="text-3xl font-semibold text-zinc-800">--°</div>
+          <div id="china-desc" class="text-xs text-zinc-500 mt-1">加载中...</div>
+          <button onclick="editLocation('panzi')" class="mt-2 text-[11px] text-pink-500 underline">修改地点</button>
+        </div>
+        <div class="glass rounded-2xl p-4 card">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-zinc-600">🇬🇧 小果子 · <span id="weather-guozi-loc">伦敦</span></span>
+            <span id="london-weather-icon" class="text-2xl">🌧️</span>
+          </div>
+          <div id="london-temp" class="text-3xl font-semibold text-zinc-800">--°</div>
+          <div id="london-desc" class="text-xs text-zinc-500 mt-1">加载中...</div>
+          <button onclick="editLocation('guozi')" class="mt-2 text-[11px] text-violet-500 underline">修改地点</button>
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-4 card bg-gradient-to-br from-pink-50 to-lavender-50">
+        <div class="text-xs font-medium text-pink-500 mb-1">✈️ 下次见面</div>
+        <div id="reunion-countdown" class="text-2xl font-semibold text-pink-700 tabular-nums">--天 --时</div>
+        <div id="reunion-date" class="text-xs text-zinc-500 mt-1">设置见面日期</div>
+        <button onclick="editReunionDate()" class="mt-2 text-xs text-pink-500 underline hover:text-pink-600">修改日期</button>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="glass rounded-2xl p-5 card">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center text-2xl">💗</div>
+          <div>
+            <div class="text-xs text-zinc-500">在一起 / 异地</div>
+            <div class="text-xl sm:text-2xl font-semibold text-zinc-800">
+              <span id="days-together">0</span> 天在一起 · 
+              <span id="days-apart" class="text-pink-500">0</span> 天异地
+            </div>
+          </div>
+        </div>
+        <button onclick="editStartDates()" class="mt-3 text-xs text-pink-500 underline">修改起始日期</button>
+      </div>
+      <div class="glass rounded-2xl p-5 card bg-gradient-to-br from-blush-50 to-pink-50">
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button onclick="triggerMissYou('panzi')" class="py-3 rounded-xl bg-gradient-to-r from-pink-400 to-rose-400 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1">
+            💖 小盘子想你
+          </button>
+          <button onclick="triggerMissYou('guozi')" class="py-3 rounded-xl bg-gradient-to-r from-violet-400 to-purple-400 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1">
+            💜 小果子想你
+          </button>
+        </div>
+        <div class="text-center text-sm text-zinc-600 mb-2">今天互相想念了 <span id="miss-count" class="font-bold text-pink-600">0</span> 次</div>
+        <div id="miss-log" class="max-h-28 overflow-y-auto text-xs space-y-1 bg-white/50 rounded-xl p-2"></div>
+      </div>
+    </section>
+
+    <section class="glass rounded-2xl p-5 card">
+      <div class="flex items-center gap-2 mb-3 flex-wrap">
+        <i data-lucide="message-circle-heart" class="w-5 h-5 text-pink-500"></i>
+        <h2 class="font-semibold text-zinc-800">随机一问</h2>
+        <span class="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full" id="question-date"></span>
+        <div class="ml-auto flex items-center gap-1 text-xs">
+          <span class="text-zinc-400">我是：</span>
+          <button id="btn-identity-panzi" onclick="setIdentity('panzi')" class="px-2 py-1 rounded-lg bg-pink-500 text-white">小盘子</button>
+          <button id="btn-identity-guozi" onclick="setIdentity('guozi')" class="px-2 py-1 rounded-lg bg-soft-100 text-zinc-600">小果子</button>
+        </div>
+      </div>
+      <p id="daily-question" class="text-lg text-zinc-700 font-medium mb-4 leading-relaxed">加载中...</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label id="label-my-answer" class="text-xs font-medium text-zinc-500 mb-1 block">🇨🇳 我的回答（小盘子）</label>
+          <textarea id="my-answer" rows="2" placeholder="写下你的回答..." class="w-full rounded-xl border border-pink-100 bg-white/80 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"></textarea>
+          <button onclick="submitMyAnswer()" class="mt-2 text-xs bg-pink-500 text-white px-3 py-1.5 rounded-lg hover:bg-pink-600 transition">提交我的回答</button>
+        </div>
+        <div>
+          <label id="label-partner-answer" class="text-xs font-medium text-zinc-500 mb-1 block">🇬🇧 对方的回答（小果子）</label>
+          <div id="partner-answer-box" class="rounded-xl border border-lavender-100 bg-lavender-50/50 p-3 text-sm min-h-[60px] blur-answer">
+            <span id="partner-answer-text">等待双方都回答后显示...</span>
+          </div>
+        </div>
+      </div>
+      <p class="text-[11px] text-zinc-400 mt-2">💡 选择「我是谁」后，左侧就是你的回答框。双方都提交后，对方答案才会取消模糊。</p>
+    </section>
+
+    <section class="glass rounded-2xl p-5 card">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="calendar-clock" class="w-5 h-5 text-pink-500"></i>
+          <h2 class="font-semibold text-zinc-800">时间表</h2>
+        </div>
+        <div class="flex gap-2 text-xs items-center">
+          <button onclick="changeScheduleDay(-1)" class="px-2 py-1 rounded-lg bg-soft-100 hover:bg-soft-200">←</button>
+          <span id="schedule-day-label" class="px-2 py-1 font-medium"></span>
+          <button onclick="changeScheduleDay(1)" class="px-2 py-1 rounded-lg bg-soft-100 hover:bg-soft-200">→</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <div class="min-w-[520px]">
+          <div class="grid grid-cols-[52px_1fr_1fr_52px] gap-1 mb-1 text-[11px] font-medium text-zinc-500">
+            <div class="text-center"><span id="sched-panzi-tz">北京</span>时间</div>
+            <div class="text-center text-pink-600">🇨🇳 小盘子</div>
+            <div class="text-center text-violet-600">🇬🇧 小果子</div>
+            <div class="text-center"><span id="sched-guozi-tz">伦敦</span>时间</div>
+          </div>
+          <div id="schedule-grid" class="space-y-0.5"></div>
+        </div>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2 text-xs">
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-300"></span> 空闲</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-300"></span> 工作/学习</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-indigo-300"></span> 睡觉</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-300"></span> 可通话</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-pink-400 animate-pulse"></span> 通话窗口</span>
+      </div>
+      <p class="text-[11px] text-zinc-400 mt-2">点击切换状态 · 双方都「可通话」自动高亮 · 伦敦时间自动处理冬夏令时</p>
+    </section>
+
+    <section class="glass rounded-2xl p-5 card">
+      <div class="flex items-center gap-2 mb-4">
+        <i data-lucide="music" class="w-5 h-5 text-pink-500"></i>
+        <h2 class="font-semibold text-zinc-800">一起听歌</h2>
+      </div>
+      <div class="bg-gradient-to-r from-green-50 to-zinc-50 rounded-xl p-4 mb-4">
+        <div class="text-xs text-zinc-500 mb-2">🔍 搜索并同时在双方软件打开</div>
+        <div class="flex gap-2">
+          <input id="music-search" type="text" placeholder="歌曲名或歌手，如：晴天 周杰伦" class="flex-1 rounded-xl border border-pink-100 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300" onkeydown="if(event.key==='Enter') searchAndOpenMusic()">
+          <button onclick="searchAndOpenMusic()" class="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition whitespace-nowrap">搜索并打开</button>
+        </div>
+        <p class="text-[11px] text-zinc-400 mt-2">同时打开：小盘子 QQ音乐 + 小果子 Apple Music</p>
+      </div>
+      <div class="bg-gradient-to-r from-pink-50 to-lavender-50 rounded-xl p-4 mb-4">
+        <div class="text-xs text-zinc-500 mb-1">正在听</div>
+        <div class="font-medium text-zinc-800 flex items-center gap-2">
+          <span class="animate-pulse-soft">🎵</span>
+          <span id="now-playing-title">还没有选择歌曲</span>
+        </div>
+        <div class="flex gap-2 mt-3 flex-wrap">
+          <a id="open-qq" href="#" target="_blank" class="text-xs bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition hidden">小盘子 · QQ音乐</a>
+          <a id="open-apple" href="#" target="_blank" class="text-xs bg-zinc-800 text-white px-3 py-1.5 rounded-lg hover:bg-zinc-900 transition hidden">小果子 · Apple Music</a>
+        </div>
+      </div>
+      <div class="space-y-2 max-h-48 overflow-y-auto" id="playlist"></div>
+      <div class="mt-4 flex flex-col sm:flex-row gap-2">
+        <input id="new-track-title" type="text" placeholder="歌曲名" class="flex-1 rounded-xl border border-pink-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+        <input id="new-track-qq" type="text" placeholder="QQ链接（可选）" class="flex-1 rounded-xl border border-pink-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+        <input id="new-track-apple" type="text" placeholder="Apple链接（可选）" class="flex-1 rounded-xl border border-pink-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+        <button onclick="addTrack()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition whitespace-nowrap">添加</button>
+      </div>
+    </section>
+
+    <section class="glass rounded-2xl p-5 card">
+      <div class="flex items-center gap-2 mb-4">
+        <i data-lucide="phone" class="w-5 h-5 text-pink-500"></i>
+        <h2 class="font-semibold text-zinc-800">电话记录</h2>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="bg-pink-50 rounded-xl p-3 text-center">
+          <div class="text-xs text-zinc-500">本月通话</div>
+          <div id="month-hours" class="text-xl font-semibold text-pink-600">0h</div>
+        </div>
+        <div class="bg-lavender-50 rounded-xl p-3 text-center">
+          <div class="text-xs text-zinc-500">总通话</div>
+          <div id="total-hours" class="text-xl font-semibold text-violet-600">0h</div>
+        </div>
+        <div class="bg-cream-50 rounded-xl p-3 text-center">
+          <div class="text-xs text-zinc-500">本月次数</div>
+          <div id="month-calls" class="text-xl font-semibold text-amber-600">0</div>
+        </div>
+        <div class="bg-soft-100 rounded-xl p-3 text-center">
+          <div class="text-xs text-zinc-500">平均每次</div>
+          <div id="avg-duration" class="text-xl font-semibold text-zinc-600">0m</div>
+        </div>
+      </div>
+      <div class="mb-4">
+        <div class="text-xs text-zinc-500 mb-2">近7天通话时长 (分钟)</div>
+        <div id="call-chart" class="flex items-end gap-1 h-24"></div>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-3">
+        <input id="call-date" type="date" class="rounded-xl border border-pink-100 px-3 py-2 text-sm">
+        <input id="call-hours" type="number" min="0" max="12" placeholder="小时" class="w-20 rounded-xl border border-pink-100 px-3 py-2 text-sm">
+        <input id="call-mins" type="number" min="0" max="59" placeholder="分钟" class="w-20 rounded-xl border border-pink-100 px-3 py-2 text-sm">
+        <button onclick="addCall()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition">记录通话</button>
+      </div>
+      <div id="call-list" class="space-y-2 max-h-40 overflow-y-auto text-sm"></div>
+    </section>
+
+    <section class="glass rounded-2xl p-5 card">
+      <div class="flex items-center gap-2 mb-4">
+        <i data-lucide="list-checks" class="w-5 h-5 text-pink-500"></i>
+        <h2 class="font-semibold text-zinc-800">共享待办</h2>
+      </div>
+      <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+        <button onclick="filterTodo('all')" class="todo-filter px-3 py-1.5 rounded-full text-xs font-medium bg-pink-500 text-white" data-filter="all">全部</button>
+        <button onclick="filterTodo('movies')" class="todo-filter px-3 py-1.5 rounded-full text-xs font-medium bg-soft-100 text-zinc-600" data-filter="movies">🎬 电影</button>
+        <button onclick="filterTodo('books')" class="todo-filter px-3 py-1.5 rounded-full text-xs font-medium bg-soft-100 text-zinc-600" data-filter="books">📚 书籍</button>
+        <button onclick="filterTodo('places')" class="todo-filter px-3 py-1.5 rounded-full text-xs font-medium bg-soft-100 text-zinc-600" data-filter="places">📍 地点</button>
+        <button onclick="filterTodo('other')" class="todo-filter px-3 py-1.5 rounded-full text-xs font-medium bg-soft-100 text-zinc-600" data-filter="other">✨ 其他</button>
+      </div>
+      <div id="todo-list" class="space-y-2 mb-4"></div>
+      <div class="flex flex-wrap gap-2">
+        <input id="new-todo-text" type="text" placeholder="添加新事项..." class="flex-1 min-w-[160px] rounded-xl border border-pink-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+        <select id="new-todo-cat" class="rounded-xl border border-pink-100 px-3 py-2 text-sm">
+          <option value="movies">🎬 电影</option>
+          <option value="books">📚 书籍</option>
+          <option value="places">📍 地点</option>
+          <option value="other">✨ 其他</option>
+        </select>
+        <select id="new-todo-priority" class="rounded-xl border border-pink-100 px-3 py-2 text-sm">
+          <option value="low">低优先</option>
+          <option value="medium" selected>中优先</option>
+          <option value="high">高优先</option>
+        </select>
+        <button onclick="addTodo()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition">添加</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="text-center py-6 text-xs text-zinc-400">
+    小盘子 💕 小果子 · 配置 Firebase 后两边实时同步
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
+    import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js';
+    window.firebaseMods = { initializeApp, getDatabase, ref, set, onValue };
+  </script>
+
+  <script>
+    const STORAGE_KEY = 'ldr_hub_v3_panzi_guozi';
+    const FB_CONFIG_KEY = 'ldr_firebase_config';
+    const DB_PATH = 'couples/panzi-guozi';
+
+    const defaultState = {
+      startTogether: '2023-06-15',
+      startApart: '2024-09-01',
+      reunionDate: '2026-12-20',
+      // 可编辑地点
+      locations: {
+        panzi: { name: '北京', lat: 39.9042, lon: 116.4074, tz: 'Asia/Shanghai' },
+        guozi: { name: '伦敦', lat: 51.5074, lon: -0.1278, tz: 'Europe/London' }
+      },
+      missLog: [
+        { who: 'panzi', time: '2026-07-27T14:22:00', label: '小盘子' },
+        { who: 'guozi', time: '2026-07-27T09:15:00', label: '小果子' }
+      ],
+      answers: {},
+      schedule: {},
+      playlist: [
+        { id: 1, title: '晴天 - 周杰伦', qq: 'https://y.qq.com/n/ryqq/songDetail/001RaE0N4Z3vJz', apple: 'https://music.apple.com/cn/song/晴天/1445145270', playing: false },
+        { id: 2, title: 'Perfect - Ed Sheeran', qq: '', apple: 'https://music.apple.com/us/song/perfect/1193701392', playing: true },
+        { id: 3, title: '小幸运 - 田馥甄', qq: 'https://y.qq.com/n/ryqq/songDetail/003OUlho2HcRHC', apple: 'https://music.apple.com/cn/song/小幸运/1445105591', playing: false }
+      ],
+      calls: [
+        { id: 1, date: '2026-07-27', minutes: 95 },
+        { id: 2, date: '2026-07-26', minutes: 48 },
+        { id: 3, date: '2026-07-24', minutes: 120 }
+      ],
+      todos: [
+        { id: 1, text: '一起看《爱在黎明破晓前》', cat: 'movies', priority: 'high', done: false },
+        { id: 2, text: '读完《挪威的森林》', cat: 'books', priority: 'medium', done: false },
+        { id: 3, text: '下次去伦敦一起看大本钟', cat: 'places', priority: 'high', done: false },
+        { id: 4, text: '学做对方家乡菜', cat: 'other', priority: 'low', done: true }
+      ],
+      updatedAt: null,
+      lastEvent: null  // { type, message, by, time }
+    };
+
+    let state = loadLocal();
+    let scheduleOffset = 0;
+    let currentTodoFilter = 'all';
+    let dbRef = null;
+    let isRemoteUpdate = false;
+    let saveTimeout = null;
+    // 本机身份（不上传云端，每人自己选）
+    let myIdentity = localStorage.getItem('ldr_my_identity') || 'panzi';
+    let lastSeenEventTime = localStorage.getItem('ldr_last_seen_event') || '';
+    let swRegistration = null;
+
+    // ===================== PWA + 通知 =====================
+    function registerSW() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          swRegistration = reg;
+        }).catch((e) => console.log('SW reg failed', e));
+      }
+    }
+
+    async function requestNotifyPermission() {
+      if (!('Notification' in window)) return false;
+      if (Notification.permission === 'granted') return true;
+      if (Notification.permission === 'denied') return false;
+      const result = await Notification.requestPermission();
+      return result === 'granted';
+    }
+
+    function showLocalNotification(title, body, tag) {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      // 优先走 Service Worker（后台也能弹）
+      if (swRegistration && swRegistration.active) {
+        swRegistration.active.postMessage({ type: 'SHOW_NOTIFICATION', title, body, tag });
+        return;
+      }
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SHOW_NOTIFICATION', title, body, tag });
+        return;
+      }
+      // 降级：页面内通知
+      try {
+        new Notification(title, { body, tag: tag || 'ldr' });
+      } catch (e) {}
+    }
+
+    function emitEvent(type, message) {
+      const by = myIdentity === 'panzi' ? '小盘子' : '小果子';
+      state.lastEvent = {
+        type,
+        message,
+        by,
+        time: new Date().toISOString()
+      };
+      // 自己发出的事件不弹给自己
+      lastSeenEventTime = state.lastEvent.time;
+      localStorage.setItem('ldr_last_seen_event', lastSeenEventTime);
+    }
+
+    function handleRemoteEvent(event) {
+      if (!event || !event.time) return;
+      if (event.time === lastSeenEventTime) return;
+      // 不通知自己发出的
+      const myName = myIdentity === 'panzi' ? '小盘子' : '小果子';
+      if (event.by === myName) {
+        lastSeenEventTime = event.time;
+        localStorage.setItem('ldr_last_seen_event', lastSeenEventTime);
+        return;
+      }
+      lastSeenEventTime = event.time;
+      localStorage.setItem('ldr_last_seen_event', lastSeenEventTime);
+
+      const title = event.by + ' 更新了小窝';
+      const body = event.message || '有新的内容';
+      showLocalNotification(title, body, event.type || 'update');
+    }
+
+    function loadLocal() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return { ...defaultState, ...JSON.parse(raw) };
+      } catch (e) {}
+      return JSON.parse(JSON.stringify(defaultState));
+    }
+
+    function saveLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function setSyncStatus(status, text) {
+      document.getElementById('sync-dot').className = 'sync-dot ' + status;
+      document.getElementById('sync-status').textContent = text;
+    }
+
+    function saveFirebaseConfig() {
+      const raw = document.getElementById('firebase-config-input').value.trim();
+      if (!raw) return alert('请粘贴 firebaseConfig');
+      try {
+        let config = (new Function('return ' + raw))();
+        if (!config.apiKey || !config.databaseURL) return alert('配置不完整，需包含 apiKey 和 databaseURL');
+        localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(config));
+        document.getElementById('firebase-setup').classList.add('hidden');
+        initFirebase(config);
+      } catch (e) {
+        alert('配置格式错误：' + e.message);
+      }
+    }
+
+    function initFirebase(config) {
+      if (!window.firebaseMods) {
+        setTimeout(() => initFirebase(config), 400);
+        return;
+      }
+      try {
+        const { initializeApp, getDatabase, ref, set, onValue } = window.firebaseMods;
+        const app = initializeApp(config);
+        const db = getDatabase(app);
+        dbRef = ref(db, DB_PATH);
+        setSyncStatus('syncing', '正在连接...');
+
+        onValue(dbRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            isRemoteUpdate = true;
+            // 深度合并，确保 locations 等嵌套对象不丢失
+            state = { ...defaultState, ...data };
+            if (data.locations) {
+              state.locations = {
+                panzi: { ...defaultState.locations.panzi, ...(data.locations.panzi || {}) },
+                guozi: { ...defaultState.locations.guozi, ...(data.locations.guozi || {}) }
+              };
+            }
+            if (!state.locations) state.locations = JSON.parse(JSON.stringify(defaultState.locations));
+            saveLocal();
+            renderAll();
+            fetchWeather();
+            // 检查是否有新事件需要通知
+            if (data.lastEvent) handleRemoteEvent(data.lastEvent);
+            isRemoteUpdate = false;
+            setSyncStatus('online', '已实时同步 · ' + new Date().toLocaleTimeString('zh-CN'));
+          } else {
+            pushToCloud();
+            setSyncStatus('online', '已连接（首次同步）');
+          }
+        }, (err) => {
+          console.error(err);
+          setSyncStatus('offline', '连接失败');
+        });
+      } catch (e) {
+        console.error(e);
+        setSyncStatus('offline', '初始化失败');
+      }
+    }
+
+    function pushToCloud() {
+      if (!dbRef || isRemoteUpdate || !window.firebaseMods) return;
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        state.updatedAt = new Date().toISOString();
+        window.firebaseMods.set(dbRef, state).then(() => {
+          setSyncStatus('online', '已同步 · ' + new Date().toLocaleTimeString('zh-CN'));
+        }).catch(err => {
+          console.error(err);
+          setSyncStatus('offline', '同步失败');
+        });
+      }, 400);
+    }
+
+    function saveState() {
+      saveLocal();
+      pushToCloud();
+    }
+
+    (function tryAutoConnect() {
+      const saved = localStorage.getItem(FB_CONFIG_KEY);
+      if (saved) {
+        try {
+          const config = JSON.parse(saved);
+          document.getElementById('firebase-config-input').value = JSON.stringify(config, null, 2);
+          setTimeout(() => initFirebase(config), 600);
+        } catch (e) {}
+      }
+    })();
+
+    function getLoc(who) {
+      if (!state.locations) {
+        state.locations = {
+          panzi: { name: '北京', lat: 39.9042, lon: 116.4074, tz: 'Asia/Shanghai' },
+          guozi: { name: '伦敦', lat: 51.5074, lon: -0.1278, tz: 'Europe/London' }
+        };
+      }
+      return state.locations[who];
+    }
+
+    function updateLocationLabels() {
+      const p = getLoc('panzi');
+      const g = getLoc('guozi');
+      const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      set('header-panzi-loc', p.name);
+      set('header-guozi-loc', g.name);
+      set('weather-panzi-loc', p.name);
+      set('weather-guozi-loc', g.name);
+      set('sched-panzi-tz', p.name);
+      set('sched-guozi-tz', g.name);
+    }
+
+    function updateClocks() {
+      const now = new Date();
+      const p = getLoc('panzi');
+      const g = getLoc('guozi');
+      document.getElementById('china-time').textContent = now.toLocaleTimeString('en-GB', { timeZone: p.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      document.getElementById('london-time').textContent = now.toLocaleTimeString('en-GB', { timeZone: g.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      document.getElementById('china-date').textContent = now.toLocaleDateString('zh-CN', { timeZone: p.tz, month: 'short', day: 'numeric', weekday: 'short' });
+      document.getElementById('london-date').textContent = now.toLocaleDateString('en-GB', { timeZone: g.tz, month: 'short', day: 'numeric', weekday: 'short' });
+      const chinaHour = parseInt(now.toLocaleString('en-GB', { timeZone: p.tz, hour: 'numeric', hour12: false }));
+      const londonHour = parseInt(now.toLocaleString('en-GB', { timeZone: g.tz, hour: 'numeric', hour12: false }));
+      document.getElementById('china-icon').textContent = (chinaHour >= 6 && chinaHour < 19) ? '☀️' : '🌙';
+      document.getElementById('london-icon').textContent = (londonHour >= 6 && londonHour < 19) ? '☀️' : '🌙';
+    }
+
+    const weatherCodes = {
+      0: ['☀️', '晴朗'], 1: ['🌤️', '大部晴朗'], 2: ['⛅', '局部多云'], 3: ['☁️', '阴天'],
+      45: ['🌫️', '雾'], 48: ['🌫️', '雾凇'], 51: ['🌦️', '小毛毛雨'], 53: ['🌦️', '毛毛雨'],
+      55: ['🌧️', '大毛毛雨'], 61: ['🌧️', '小雨'], 63: ['🌧️', '中雨'], 65: ['🌧️', '大雨'],
+      71: ['🌨️', '小雪'], 73: ['🌨️', '中雪'], 75: ['❄️', '大雪'], 80: ['🌦️', '阵雨'],
+      81: ['🌧️', '中阵雨'], 82: ['⛈️', '强阵雨'], 95: ['⛈️', '雷暴']
+    };
+
+    async function fetchWeather() {
+      try {
+        const p = getLoc('panzi');
+        const g = getLoc('guozi');
+        const cnRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code&timezone=${encodeURIComponent(p.tz)}`);
+        const cnData = await cnRes.json();
+        const [cnIcon, cnDesc] = weatherCodes[cnData.current.weather_code] || ['🌡️', '未知'];
+        document.getElementById('china-temp').textContent = Math.round(cnData.current.temperature_2m) + '°';
+        document.getElementById('china-weather-icon').textContent = cnIcon;
+        document.getElementById('china-desc').textContent = cnDesc + ' · ' + p.name;
+
+        const ldRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code&timezone=${encodeURIComponent(g.tz)}`);
+        const ldData = await ldRes.json();
+        const [ldIcon, ldDesc] = weatherCodes[ldData.current.weather_code] || ['🌡️', '未知'];
+        document.getElementById('london-temp').textContent = Math.round(ldData.current.temperature_2m) + '°';
+        document.getElementById('london-weather-icon').textContent = ldIcon;
+        document.getElementById('london-desc').textContent = ldDesc + ' · ' + g.name;
+      } catch (e) {
+        document.getElementById('china-desc').textContent = '天气加载失败';
+        document.getElementById('london-desc').textContent = '天气加载失败';
+      }
+    }
+
+    function editLocation(who) {
+      const loc = getLoc(who);
+      const label = who === 'panzi' ? '小盘子' : '小果子';
+      const name = prompt(`${label}的地点名称（如：北京、上海、广州）：`, loc.name);
+      if (name === null || !name.trim()) return;
+      const latStr = prompt(`${label}的纬度（Latitude，例如北京 39.9042）：`, String(loc.lat));
+      if (latStr === null) return;
+      const lonStr = prompt(`${label}的经度（Longitude，例如北京 116.4074）：`, String(loc.lon));
+      if (lonStr === null) return;
+      const lat = parseFloat(latStr);
+      const lon = parseFloat(lonStr);
+      if (isNaN(lat) || isNaN(lon)) return alert('经纬度请输入数字');
+
+      // 简单时区推断（常见城市）
+      let tz = loc.tz;
+      const n = name.trim();
+      if (who === 'panzi') {
+        if (/上海|Shanghai/i.test(n)) tz = 'Asia/Shanghai';
+        else if (/广州|深圳|广东|Guangzhou|Shenzhen/i.test(n)) tz = 'Asia/Shanghai';
+        else if (/成都|重庆|Sichuan|Chengdu/i.test(n)) tz = 'Asia/Shanghai';
+        else if (/西安|Xi.?an/i.test(n)) tz = 'Asia/Shanghai';
+        else if (/乌鲁木齐|新疆/i.test(n)) tz = 'Asia/Urumqi';
+        else tz = 'Asia/Shanghai';
+      } else {
+        if (/伦敦|London/i.test(n)) tz = 'Europe/London';
+        else if (/曼彻斯特|Manchester/i.test(n)) tz = 'Europe/London';
+        else if (/爱丁堡|Edinburgh/i.test(n)) tz = 'Europe/London';
+        else if (/巴黎|Paris/i.test(n)) tz = 'Europe/Paris';
+        else if (/柏林|Berlin/i.test(n)) tz = 'Europe/Berlin';
+        else if (/纽约|New York/i.test(n)) tz = 'America/New_York';
+        else tz = loc.tz;
+      }
+
+      const tzCustom = prompt(`时区（一般不用改，当前：${tz}）\n常见：Asia/Shanghai、Europe/London`, tz);
+      if (tzCustom) tz = tzCustom.trim();
+
+      if (!state.locations) state.locations = JSON.parse(JSON.stringify(defaultState.locations));
+      state.locations[who] = { name: n, lat, lon, tz };
+      emitEvent('location', label + ' 把地点改成了「' + n + '」');
+      saveState();
+      updateLocationLabels();
+      updateClocks();
+      fetchWeather();
+      renderSchedule();
+      alert(`${label}地点已更新为：${n}\n（已同步到云端）`);
+    }
+
+    function updateCountdowns() {
+      const now = new Date();
+      document.getElementById('days-together').textContent = Math.floor((now - new Date(state.startTogether)) / 86400000);
+      document.getElementById('days-apart').textContent = Math.max(0, Math.floor((now - new Date(state.startApart)) / 86400000));
+      const diff = new Date(state.reunionDate + 'T00:00:00') - now;
+      if (diff <= 0) {
+        document.getElementById('reunion-countdown').textContent = '终于见面了！🎉';
+      } else {
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        document.getElementById('reunion-countdown').textContent = `${d}天 ${h}时 ${m}分`;
+      }
+      document.getElementById('reunion-date').textContent = state.reunionDate;
+    }
+
+    function editReunionDate() {
+      const val = prompt('下次见面日期 (YYYY-MM-DD):', state.reunionDate);
+      if (val && /^\d{4}-\d{2}-\d{2}$/.test(val)) { state.reunionDate = val; saveState(); updateCountdowns(); }
+    }
+
+    function editStartDates() {
+      const t = prompt('在一起起始日期 (YYYY-MM-DD):', state.startTogether);
+      if (t && /^\d{4}-\d{2}-\d{2}$/.test(t)) state.startTogether = t;
+      const a = prompt('开始异地日期 (YYYY-MM-DD):', state.startApart);
+      if (a && /^\d{4}-\d{2}-\d{2}$/.test(a)) state.startApart = a;
+      saveState(); updateCountdowns();
+    }
+
+    function triggerMissYou(who) {
+      const label = who === 'panzi' ? '小盘子' : '小果子';
+      if (!state.missLog) state.missLog = [];
+      state.missLog.unshift({ who, time: new Date().toISOString(), label });
+      if (state.missLog.length > 50) state.missLog = state.missLog.slice(0, 50);
+      emitEvent('miss', label + ' 想你了 💕');
+      saveState();
+      updateMissYouUI();
+      spawnHearts();
+    }
+
+    function updateMissYouUI() {
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('miss-count').textContent = (state.missLog || []).filter(m => m.time.startsWith(today)).length;
+      const logEl = document.getElementById('miss-log');
+      if (!state.missLog || !state.missLog.length) {
+        logEl.innerHTML = '<div class="text-zinc-400 text-center py-2">还没有想念记录～</div>';
+        return;
+      }
+      logEl.innerHTML = state.missLog.slice(0, 12).map(m => {
+        const timeStr = new Date(m.time).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const color = m.who === 'panzi' ? 'text-pink-600' : 'text-violet-600';
+        const icon = m.who === 'panzi' ? '💖' : '💜';
+        return `<div class="flex justify-between items-center"><span class="${color}">${icon} ${m.label}</span><span class="text-zinc-400">${timeStr}</span></div>`;
+      }).join('');
+    }
+
+    function spawnHearts() {
+      const container = document.getElementById('hearts-container');
+      const emojis = ['💖', '💗', '💕', '💓', '💞', '✨', '🌸', '💜'];
+      for (let i = 0; i < 12; i++) {
+        setTimeout(() => {
+          const el = document.createElement('div');
+          el.className = 'heart-particle';
+          el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+          el.style.left = (20 + Math.random() * 60) + 'vw';
+          el.style.top = (40 + Math.random() * 30) + 'vh';
+          el.style.fontSize = (18 + Math.random() * 20) + 'px';
+          container.appendChild(el);
+          setTimeout(() => el.remove(), 1300);
+        }, i * 50);
+      }
+    }
+
+    const questions = [
+      "今天有什么让你开心地笑了？", "我们最喜欢的共同回忆是什么？",
+      "如果现在能瞬移到对方身边，你最想做什么？", "最近听的一首歌让你想到了对方吗？",
+      "你今天最想对对方说的一句话是什么？", "我们下次见面最想一起做的三件事？",
+      "描述一下你理想中的「普通的一天」和对方在一起。", "有什么小事让你今天特别想对方？",
+      "如果给这段异地恋打分，你会给几分？为什么？", "你最喜欢对方身上的哪个小习惯？",
+      "今天的天气让你想起了什么？", "如果只能带三样东西去见对方，你会带什么？",
+      "最近一次做梦梦到对方是什么场景？", "我们之间有什么「只有我们知道」的暗号或笑话？",
+      "你希望未来五年我们在哪里？"
+    ];
+
+    function getDailyQuestion() {
+      const today = new Date().toISOString().slice(0, 10);
+      const dayIndex = Math.floor(new Date(today).getTime() / 86400000) % questions.length;
+      return { date: today, text: questions[dayIndex] };
+    }
+
+    function setIdentity(who) {
+      myIdentity = who;
+      localStorage.setItem('ldr_my_identity', who);
+      // 更新按钮样式
+      const bp = document.getElementById('btn-identity-panzi');
+      const bg = document.getElementById('btn-identity-guozi');
+      if (who === 'panzi') {
+        bp.className = 'px-2 py-1 rounded-lg bg-pink-500 text-white';
+        bg.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
+      } else {
+        bg.className = 'px-2 py-1 rounded-lg bg-violet-500 text-white';
+        bp.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
+      }
+      renderDailyQuestion();
+    }
+
+    function renderDailyQuestion() {
+      const q = getDailyQuestion();
+      document.getElementById('daily-question').textContent = q.text;
+      document.getElementById('question-date').textContent = q.date;
+
+      // 兼容旧数据：原来用 me/partner，现在统一用 panzi/guozi
+      if (!state.answers[q.date]) {
+        state.answers[q.date] = { panzi: '', guozi: '', panziSubmitted: false, guoziSubmitted: false };
+      }
+      const a = state.answers[q.date];
+      // 迁移旧字段
+      if (a.me !== undefined && a.panzi === undefined) {
+        a.panzi = a.me || '';
+        a.guozi = a.partner || '';
+        a.panziSubmitted = !!a.meSubmitted;
+        a.guoziSubmitted = !!a.partnerSubmitted;
+      }
+
+      const isPanzi = myIdentity === 'panzi';
+      const myKey = isPanzi ? 'panzi' : 'guozi';
+      const partnerKey = isPanzi ? 'guozi' : 'panzi';
+      const myLabel = isPanzi ? '🇨🇳 我的回答（小盘子）' : '🇬🇧 我的回答（小果子）';
+      const partnerLabel = isPanzi ? '🇬🇧 对方的回答（小果子）' : '🇨🇳 对方的回答（小盘子）';
+
+      document.getElementById('label-my-answer').textContent = myLabel;
+      document.getElementById('label-partner-answer').textContent = partnerLabel;
+      document.getElementById('my-answer').value = a[myKey] || '';
+      document.getElementById('my-answer').placeholder = isPanzi ? '小盘子写下你的回答...' : '小果子写下你的回答...';
+
+      const partnerBox = document.getElementById('partner-answer-box');
+      const partnerText = document.getElementById('partner-answer-text');
+      const bothDone = a.panziSubmitted && a.guoziSubmitted;
+
+      if (bothDone) {
+        partnerText.textContent = a[partnerKey] || '（对方没有填写）';
+        partnerBox.classList.add('revealed');
+        partnerBox.classList.remove('blur-answer');
+      } else {
+        partnerText.textContent = a[partnerKey + 'Submitted'] ? '对方已提交，等你也提交后一起显示' : '等待双方都回答后显示...';
+        partnerBox.classList.add('blur-answer');
+        partnerBox.classList.remove('revealed');
+      }
+
+      // 同步身份按钮样式
+      const bp = document.getElementById('btn-identity-panzi');
+      const bg = document.getElementById('btn-identity-guozi');
+      if (bp && bg) {
+        if (myIdentity === 'panzi') {
+          bp.className = 'px-2 py-1 rounded-lg bg-pink-500 text-white';
+          bg.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
+        } else {
+          bg.className = 'px-2 py-1 rounded-lg bg-violet-500 text-white';
+          bp.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
+        }
+      }
+    }
+
+    function submitMyAnswer() {
+      const q = getDailyQuestion();
+      if (!state.answers[q.date]) {
+        state.answers[q.date] = { panzi: '', guozi: '', panziSubmitted: false, guoziSubmitted: false };
+      }
+      const a = state.answers[q.date];
+      const myKey = myIdentity === 'panzi' ? 'panzi' : 'guozi';
+      a[myKey] = document.getElementById('my-answer').value.trim();
+      a[myKey + 'Submitted'] = true;
+      emitEvent('answer', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 回答了今日一问');
+      saveState();
+      renderDailyQuestion();
+    }
+
+    const statusCycle = ['free', 'work', 'sleep', 'available'];
+    const statusColors = {
+      free: 'bg-emerald-200 hover:bg-emerald-300', work: 'bg-blue-200 hover:bg-blue-300',
+      sleep: 'bg-indigo-200 hover:bg-indigo-300', available: 'bg-amber-200 hover:bg-amber-300',
+      call: 'bg-pink-400 hover:bg-pink-500 animate-pulse'
+    };
+    const statusLabels = { free: '空闲', work: '工作', sleep: '睡觉', available: '可通话', call: '通话!' };
+
+    function getScheduleDate() {
+      const d = new Date();
+      d.setDate(d.getDate() + scheduleOffset);
+      return d.toISOString().slice(0, 10);
+    }
+
+    function ensureSchedule(date) {
+      if (!state.schedule[date]) {
+        state.schedule[date] = { china: {}, london: {} };
+        for (let h = 0; h < 24; h++) {
+          state.schedule[date].china[h] = (h >= 9 && h < 18) ? 'work' : (h >= 23 || h < 7) ? 'sleep' : 'free';
+          state.schedule[date].london[h] = (h >= 9 && h < 17) ? 'work' : (h >= 23 || h < 7) ? 'sleep' : 'free';
+        }
+        state.schedule[date].china[20] = 'available';
+        state.schedule[date].china[21] = 'available';
+        state.schedule[date].london[12] = 'available';
+        state.schedule[date].london[13] = 'available';
+        state.schedule[date].london[20] = 'available';
+      }
+    }
+
+    function renderSchedule() {
+      const date = getScheduleDate();
+      ensureSchedule(date);
+      document.getElementById('schedule-day-label').textContent =
+        (scheduleOffset === 0 ? '今天 ' : scheduleOffset === 1 ? '明天 ' : scheduleOffset === -1 ? '昨天 ' : '') + date;
+      const grid = document.getElementById('schedule-grid');
+      grid.innerHTML = '';
+      const sch = state.schedule[date];
+      const p = getLoc('panzi');
+      const g = getLoc('guozi');
+      // 以小盘子本地 0-23 点为行，计算对应的小果子本地小时
+      const baseUtc = Date.UTC(parseInt(date.slice(0,4)), parseInt(date.slice(5,7))-1, parseInt(date.slice(8,10)), 0, 0, 0);
+      for (let localH = 0; localH < 24; localH++) {
+        let guoziH = localH;
+        // 寻找对应 UTC 时刻
+        for (let u = 0; u < 48; u++) {
+          const d = new Date(baseUtc + (u - 12) * 3600000);
+          const hInP = parseInt(d.toLocaleString('en-GB', { timeZone: p.tz, hour: 'numeric', hour12: false }));
+          const dateInP = d.toLocaleDateString('en-CA', { timeZone: p.tz });
+          if (hInP === localH && dateInP === date) {
+            guoziH = parseInt(d.toLocaleString('en-GB', { timeZone: g.tz, hour: 'numeric', hour12: false }));
+            break;
+          }
+        }
+
+        let cStatus = sch.china[localH] || 'free';
+        let lStatus = sch.london[guoziH] || 'free';
+        if (cStatus === 'available' && lStatus === 'available') { cStatus = 'call'; lStatus = 'call'; }
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-[52px_1fr_1fr_52px] gap-1';
+        row.innerHTML = `
+          <div class="text-[11px] text-zinc-500 text-center py-1 tabular-nums font-medium">${String(localH).padStart(2,'0')}:00</div>
+          <div class="schedule-slot rounded-lg ${statusColors[cStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700" onclick="toggleSchedule('${date}','china',${localH})">${statusLabels[cStatus]}</div>
+          <div class="schedule-slot rounded-lg ${statusColors[lStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700" onclick="toggleSchedule('${date}','london',${guoziH})">${statusLabels[lStatus]}</div>
+          <div class="text-[11px] text-zinc-500 text-center py-1 tabular-nums font-medium">${String(guoziH).padStart(2,'0')}:00</div>`;
+        grid.appendChild(row);
+      }
+    }
+
+    function toggleSchedule(date, who, hour) {
+      ensureSchedule(date);
+      const cur = state.schedule[date][who][hour] || 'free';
+      state.schedule[date][who][hour] = statusCycle[(statusCycle.indexOf(cur) + 1) % statusCycle.length];
+      emitEvent('schedule', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 更新了时间表');
+      saveState();
+      renderSchedule();
+    }
+
+    function changeScheduleDay(delta) {
+      scheduleOffset += delta;
+      renderSchedule();
+    }
+
+    function searchAndOpenMusic() {
+      const q = document.getElementById('music-search').value.trim();
+      if (!q) return alert('请输入歌曲名或歌手');
+      const encoded = encodeURIComponent(q);
+      const qqUrl = `https://y.qq.com/n/ryqq/search?w=${encoded}&t=song`;
+      const appleUrl = `https://music.apple.com/search?term=${encoded}`;
+      window.open(qqUrl, '_blank');
+      setTimeout(() => window.open(appleUrl, '_blank'), 300);
+      state.playlist.forEach(t => t.playing = false);
+      state.playlist.unshift({ id: Date.now(), title: q, qq: qqUrl, apple: appleUrl, playing: true });
+      if (state.playlist.length > 30) state.playlist = state.playlist.slice(0, 30);
+      emitEvent('music', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 想一起听「' + q + '」🎵');
+      saveState();
+      renderPlaylist();
+    }
+
+    function renderPlaylist() {
+      const list = document.getElementById('playlist');
+      list.innerHTML = '';
+      const playing = state.playlist.find(t => t.playing);
+      if (playing) {
+        document.getElementById('now-playing-title').textContent = playing.title;
+        const qq = document.getElementById('open-qq');
+        const apple = document.getElementById('open-apple');
+        if (playing.qq) { qq.href = playing.qq; qq.classList.remove('hidden'); } else qq.classList.add('hidden');
+        if (playing.apple) { apple.href = playing.apple; apple.classList.remove('hidden'); } else apple.classList.add('hidden');
+      } else {
+        document.getElementById('now-playing-title').textContent = '还没有选择歌曲';
+        document.getElementById('open-qq').classList.add('hidden');
+        document.getElementById('open-apple').classList.add('hidden');
+      }
+      state.playlist.forEach(t => {
+        const el = document.createElement('div');
+        el.className = `flex items-center gap-2 p-2 rounded-xl ${t.playing ? 'bg-pink-50 border border-pink-200' : 'hover:bg-soft-50'} transition`;
+        el.innerHTML = `
+          <button onclick="setPlaying(${t.id})" class="text-lg">${t.playing ? '🔊' : '▶️'}</button>
+          <span class="flex-1 text-sm truncate">${t.title}</span>
+          ${t.qq ? `<a href="${t.qq}" target="_blank" class="text-xs text-green-600 hover:underline">QQ</a>` : ''}
+          ${t.apple ? `<a href="${t.apple}" target="_blank" class="text-xs text-zinc-600 hover:underline">Apple</a>` : ''}
+          <button onclick="removeTrack(${t.id})" class="text-zinc-400 hover:text-red-400 text-sm">×</button>`;
+        list.appendChild(el);
+      });
+    }
+
+    function setPlaying(id) {
+      state.playlist.forEach(t => t.playing = t.id === id);
+      saveState();
+      renderPlaylist();
+    }
+
+    function addTrack() {
+      const title = document.getElementById('new-track-title').value.trim();
+      if (!title) return;
+      state.playlist.push({
+        id: Date.now(), title,
+        qq: document.getElementById('new-track-qq').value.trim(),
+        apple: document.getElementById('new-track-apple').value.trim(),
+        playing: false
+      });
+      document.getElementById('new-track-title').value = '';
+      document.getElementById('new-track-qq').value = '';
+      document.getElementById('new-track-apple').value = '';
+      emitEvent('music', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 添加了歌曲「' + title + '」');
+      saveState();
+      renderPlaylist();
+    }
+
+    function removeTrack(id) {
+      state.playlist = state.playlist.filter(t => t.id !== id);
+      saveState();
+      renderPlaylist();
+    }
+
+    function renderCalls() {
+      const now = new Date();
+      const thisMonth = now.toISOString().slice(0, 7);
+      let monthMins = 0, totalMins = 0, monthCount = 0;
+      const last7 = {};
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        last7[d.toISOString().slice(0, 10)] = 0;
+      }
+      (state.calls || []).forEach(c => {
+        totalMins += c.minutes;
+        if (c.date.startsWith(thisMonth)) { monthMins += c.minutes; monthCount++; }
+        if (last7[c.date] !== undefined) last7[c.date] += c.minutes;
+      });
+      document.getElementById('month-hours').textContent = (monthMins / 60).toFixed(1) + 'h';
+      document.getElementById('total-hours').textContent = (totalMins / 60).toFixed(1) + 'h';
+      document.getElementById('month-calls').textContent = monthCount;
+      document.getElementById('avg-duration').textContent = monthCount ? Math.round(monthMins / monthCount) + 'm' : '0m';
+      const chart = document.getElementById('call-chart');
+      chart.innerHTML = '';
+      const maxM = Math.max(...Object.values(last7), 1);
+      Object.entries(last7).forEach(([date, mins]) => {
+        const h = Math.max(4, (mins / maxM) * 100);
+        const bar = document.createElement('div');
+        bar.className = 'flex-1 flex flex-col items-center gap-1';
+        bar.innerHTML = `<div class="w-full chart-bar rounded-t bg-gradient-to-t from-pink-400 to-pink-300" style="height:${h}%"></div><div class="text-[9px] text-zinc-400">${date.slice(5)}</div>`;
+        chart.appendChild(bar);
+      });
+      const list = document.getElementById('call-list');
+      list.innerHTML = '';
+      [...(state.calls || [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10).forEach(c => {
+        const el = document.createElement('div');
+        el.className = 'flex justify-between items-center py-1.5 border-b border-pink-50';
+        const h = Math.floor(c.minutes / 60), m = c.minutes % 60;
+        el.innerHTML = `<span class="text-zinc-600">${c.date}</span><span class="font-medium text-pink-600">${h > 0 ? h + 'h ' : ''}${m}m <span class="text-zinc-400 text-xs">via 微信</span></span><button onclick="removeCall(${c.id})" class="text-zinc-300 hover:text-red-400 text-xs">删除</button>`;
+        list.appendChild(el);
+      });
+    }
+
+    function addCall() {
+      const date = document.getElementById('call-date').value || new Date().toISOString().slice(0, 10);
+      const hours = parseInt(document.getElementById('call-hours').value) || 0;
+      const mins = parseInt(document.getElementById('call-mins').value) || 0;
+      const total = hours * 60 + mins;
+      if (total <= 0) return alert('请输入通话时长');
+      if (!state.calls) state.calls = [];
+      state.calls.push({ id: Date.now(), date, minutes: total });
+      document.getElementById('call-hours').value = '';
+      document.getElementById('call-mins').value = '';
+      emitEvent('call', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 记录了一次通话');
+      saveState();
+      renderCalls();
+    }
+
+    function removeCall(id) {
+      state.calls = state.calls.filter(c => c.id !== id);
+      saveState();
+      renderCalls();
+    }
+
+    function renderTodos() {
+      const list = document.getElementById('todo-list');
+      list.innerHTML = '';
+      let items = state.todos || [];
+      if (currentTodoFilter !== 'all') items = items.filter(t => t.cat === currentTodoFilter);
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      items.sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      });
+      items.forEach(t => {
+        const el = document.createElement('div');
+        el.className = `todo-item flex items-center gap-3 p-3 rounded-xl border ${t.done ? 'bg-soft-50 border-soft-100 completed' : 'bg-white/60 border-pink-50'} transition`;
+        const pColor = t.priority === 'high' ? 'text-red-400' : t.priority === 'medium' ? 'text-amber-400' : 'text-zinc-300';
+        const catIcon = { movies: '🎬', books: '📚', places: '📍', other: '✨' }[t.cat];
+        el.innerHTML = `
+          <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTodo(${t.id})" class="w-5 h-5 rounded accent-pink-500 cursor-pointer">
+          <span class="todo-text flex-1 text-sm ${t.done ? 'text-zinc-400' : 'text-zinc-700'}">${catIcon} ${t.text}</span>
+          <span class="text-xs ${pColor}">${t.priority === 'high' ? '!!!' : t.priority === 'medium' ? '!!' : '!'}</span>
+          <button onclick="removeTodo(${t.id})" class="text-zinc-300 hover:text-red-400 text-sm">×</button>`;
+        list.appendChild(el);
+      });
+    }
+
+    function filterTodo(cat) {
+      currentTodoFilter = cat;
+      document.querySelectorAll('.todo-filter').forEach(b => {
+        b.className = b.dataset.filter === cat
+          ? 'todo-filter px-3 py-1.5 rounded-full text-xs font-medium bg-pink-500 text-white'
+          : 'todo-filter px-3 py-1.5 rounded-full text-xs font-medium bg-soft-100 text-zinc-600';
+      });
+      renderTodos();
+    }
+
+    function addTodo() {
+      const text = document.getElementById('new-todo-text').value.trim();
+      if (!text) return;
+      if (!state.todos) state.todos = [];
+      state.todos.push({
+        id: Date.now(), text,
+        cat: document.getElementById('new-todo-cat').value,
+        priority: document.getElementById('new-todo-priority').value,
+        done: false
+      });
+      document.getElementById('new-todo-text').value = '';
+      emitEvent('todo', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 添加了待办「' + text + '」');
+      saveState();
+      renderTodos();
+    }
+
+    function toggleTodo(id) {
+      const t = state.todos.find(x => x.id === id);
+      if (t) { t.done = !t.done; saveState(); renderTodos(); }
+    }
+
+    function removeTodo(id) {
+      state.todos = state.todos.filter(t => t.id !== id);
+      saveState();
+      renderTodos();
+    }
+
+    function renderAll() {
+      updateLocationLabels();
+      updateMissYouUI();
+      renderDailyQuestion();
+      renderSchedule();
+      renderPlaylist();
+      renderCalls();
+      renderTodos();
+      updateCountdowns();
+    }
+
+    document.getElementById('call-date').value = new Date().toISOString().slice(0, 10);
+
+    function init() {
+      registerSW();
+      updateClocks();
+      setInterval(updateClocks, 1000);
+      fetchWeather();
+      setInterval(fetchWeather, 600000);
+      updateCountdowns();
+      setInterval(updateCountdowns, 60000);
+      renderAll();
+      lucide.createIcons();
+      // 首次进入时请求通知权限
+      setTimeout(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+          // 不强制弹，等用户点按钮
+        }
+      }, 2000);
+    }
+    init();
+
+    // 暴露给按钮
+    window.enableNotifications = async function() {
+      const ok = await requestNotifyPermission();
+      if (ok) {
+        alert('通知已开启！对方更新时你会收到提醒。\n\n建议再把网页「添加到主屏幕」当成 App 使用。');
+        showLocalNotification('我们的小窝', '通知已开启 💕', 'test');
+      } else {
+        alert('通知权限未开启。请在手机设置里允许此网页发送通知。');
+      }
+    };
+  </script>
+</body>
+</html>
