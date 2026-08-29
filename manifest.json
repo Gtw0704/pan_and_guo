@@ -2,7 +2,7 @@
   "name": "小盘子 & 小果子的小窝",
   "short_name": "我们的小窝",
   "description": "小盘子和小果子的异地恋小窝",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#fdf2f8",
   "theme_color": "#ec4899",

@@ -50,7 +50,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     * { -webkit-tap-highlight-color: transparent; }
-    body { background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 50%, #fefce8 100%); min-height: 100vh; }
+    body { background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 50%, #fefce8 100%); min-height: 100vh; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
     .glass { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.6); }
     .card { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
     .card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(236,72,153,0.15); }
@@ -105,6 +105,10 @@
       <div class="flex items-center justify-center gap-2 mt-2 text-xs flex-wrap">
         <span id="sync-dot" class="sync-dot offline"></span>
         <span id="sync-status" class="text-zinc-500">未连接云端</span>
+        <span class="text-zinc-400">|</span>
+        <span class="text-zinc-500">当前身份：<span id="identity-chip" class="font-medium text-pink-600">小盘子</span></span>
+        <button onclick="setIdentity('panzi')" class="text-pink-500 underline">我是小盘子</button>
+        <button onclick="setIdentity('guozi')" class="text-violet-500 underline">我是小果子</button>
         <button onclick="document.getElementById('firebase-setup').classList.toggle('hidden')" class="text-pink-500 underline ml-1">配置同步</button>
         <button onclick="enableNotifications()" class="text-violet-500 underline ml-1">开启通知</button>
       </div>
@@ -184,12 +188,9 @@
         <button onclick="editStartDates()" class="mt-3 text-xs text-pink-500 underline">修改起始日期</button>
       </div>
       <div class="glass rounded-2xl p-5 card bg-gradient-to-br from-blush-50 to-pink-50">
-        <div class="grid grid-cols-2 gap-2 mb-3">
-          <button onclick="triggerMissYou('panzi')" class="py-3 rounded-xl bg-gradient-to-r from-pink-400 to-rose-400 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1">
-            💖 小盘子想你
-          </button>
-          <button onclick="triggerMissYou('guozi')" class="py-3 rounded-xl bg-gradient-to-r from-violet-400 to-purple-400 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1">
-            💜 小果子想你
+        <div class="grid grid-cols-1 gap-2 mb-3">
+          <button id="miss-me-btn" onclick="triggerMissYou(myIdentity)" class="py-3 rounded-xl bg-gradient-to-r from-pink-400 to-rose-400 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1">
+            💕 我想你（小盘子）
           </button>
         </div>
         <div class="text-center text-sm text-zinc-600 mb-2">今天互相想念了 <span id="miss-count" class="font-bold text-pink-600">0</span> 次</div>
@@ -357,6 +358,24 @@
       </div>
     </section>
 
+    <section class="glass rounded-2xl p-5 card">
+      <div class="flex items-center gap-2 mb-4">
+        <i data-lucide="notebook-pen" class="w-5 h-5 text-pink-500"></i>
+        <h2 class="font-semibold text-zinc-800">心情与想法</h2>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2 mb-3">
+        <select id="new-thought-mood" class="rounded-xl border border-pink-100 px-3 py-2 text-sm">
+          <option value="💗 开心">💗 开心</option>
+          <option value="💕 想你">💕 想你</option>
+          <option value="🌧️ 有点累">🌧️ 有点累</option>
+          <option value="✨ 期待见面">✨ 期待见面</option>
+        </select>
+        <textarea id="new-thought-text" rows="2" placeholder="写下今天的想法..." class="flex-1 rounded-xl border border-pink-100 bg-white/80 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"></textarea>
+        <button onclick="addThought()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition whitespace-nowrap self-start sm:self-auto">发布</button>
+      </div>
+      <div id="thought-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+    </section>
+
   </main>
 
   <footer class="text-center py-6 text-xs text-zinc-400">
@@ -364,9 +383,9 @@
   </footer>
 
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
-    import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js';
-    window.firebaseMods = { initializeApp, getDatabase, ref, set, onValue };
+    import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
+    import { getDatabase, ref, set, onValue, get } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js';
+    window.firebaseMods = { initializeApp, getApps, getApp, getDatabase, ref, set, onValue, get };
   </script>
 
   <script>
@@ -405,6 +424,7 @@
         { id: 3, text: '下次去伦敦一起看大本钟', cat: 'places', priority: 'high', done: false },
         { id: 4, text: '学做对方家乡菜', cat: 'other', priority: 'low', done: true }
       ],
+      thoughts: [],
       updatedAt: null,
       lastEvent: null  // { type, message, by, time }
     };
@@ -419,12 +439,18 @@
     let myIdentity = localStorage.getItem('ldr_my_identity') || 'panzi';
     let lastSeenEventTime = localStorage.getItem('ldr_last_seen_event') || '';
     let swRegistration = null;
+    let unsubscribeCloud = null;
+    let pollTimer = null;
 
     // ===================== PWA + 通知 =====================
     function registerSW() {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').then((reg) => {
           swRegistration = reg;
+          if (navigator.serviceWorker.controller) return;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            swRegistration = reg;
+          });
         }).catch((e) => console.log('SW reg failed', e));
       }
     }
@@ -522,31 +548,17 @@
         return;
       }
       try {
-        const { initializeApp, getDatabase, ref, set, onValue } = window.firebaseMods;
-        const app = initializeApp(config);
+        const { initializeApp, getDatabase, ref, onValue, getApps, getApp } = window.firebaseMods;
+        const app = getApps().length ? getApp() : initializeApp(config);
         const db = getDatabase(app);
         dbRef = ref(db, DB_PATH);
         setSyncStatus('syncing', '正在连接...');
+        if (unsubscribeCloud) unsubscribeCloud();
 
-        onValue(dbRef, (snapshot) => {
+        unsubscribeCloud = onValue(dbRef, (snapshot) => {
           const data = snapshot.val();
           if (data) {
-            isRemoteUpdate = true;
-            // 深度合并，确保 locations 等嵌套对象不丢失
-            state = { ...defaultState, ...data };
-            if (data.locations) {
-              state.locations = {
-                panzi: { ...defaultState.locations.panzi, ...(data.locations.panzi || {}) },
-                guozi: { ...defaultState.locations.guozi, ...(data.locations.guozi || {}) }
-              };
-            }
-            if (!state.locations) state.locations = JSON.parse(JSON.stringify(defaultState.locations));
-            saveLocal();
-            renderAll();
-            fetchWeather();
-            // 检查是否有新事件需要通知
-            if (data.lastEvent) handleRemoteEvent(data.lastEvent);
-            isRemoteUpdate = false;
+            applyRemoteData(data);
             setSyncStatus('online', '已实时同步 · ' + new Date().toLocaleTimeString('zh-CN'));
           } else {
             pushToCloud();
@@ -556,10 +568,45 @@
           console.error(err);
           setSyncStatus('offline', '连接失败');
         });
+        startCloudPolling();
       } catch (e) {
         console.error(e);
         setSyncStatus('offline', '初始化失败');
       }
+    }
+
+    function applyRemoteData(data) {
+      isRemoteUpdate = true;
+      state = { ...defaultState, ...data };
+      if (data.locations) {
+        state.locations = {
+          panzi: { ...defaultState.locations.panzi, ...(data.locations.panzi || {}) },
+          guozi: { ...defaultState.locations.guozi, ...(data.locations.guozi || {}) }
+        };
+      }
+      if (!state.locations) state.locations = JSON.parse(JSON.stringify(defaultState.locations));
+      saveLocal();
+      renderAll();
+      fetchWeather();
+      if (data.lastEvent) handleRemoteEvent(data.lastEvent);
+      isRemoteUpdate = false;
+    }
+
+    function startCloudPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
+        if (!dbRef || isRemoteUpdate || !window.firebaseMods) return;
+        try {
+          const snap = await window.firebaseMods.get(dbRef);
+          const data = snap.val();
+          if (data) {
+            applyRemoteData(data);
+            setSyncStatus('online', '已同步 · ' + new Date().toLocaleTimeString('zh-CN'));
+          }
+        } catch (e) {
+          setSyncStatus('offline', '同步重试中');
+        }
+      }, 12000);
     }
 
     function pushToCloud() {
@@ -810,6 +857,20 @@
         bp.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
       }
       renderDailyQuestion();
+      updateIdentityUI();
+    }
+
+    function updateIdentityUI() {
+      const label = myIdentity === 'panzi' ? '小盘子' : '小果子';
+      const chip = document.getElementById('identity-chip');
+      if (chip) chip.textContent = label;
+      const missBtn = document.getElementById('miss-me-btn');
+      if (missBtn) {
+        missBtn.textContent = `💕 我想你（${label}）`;
+        missBtn.className = myIdentity === 'panzi'
+          ? 'py-3 rounded-xl bg-gradient-to-r from-pink-400 to-rose-400 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1'
+          : 'py-3 rounded-xl bg-gradient-to-r from-violet-400 to-purple-400 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1';
+      }
     }
 
     function renderDailyQuestion() {
@@ -1159,6 +1220,57 @@
       renderTodos();
     }
 
+    function renderThoughts() {
+      const list = document.getElementById('thought-list');
+      if (!list) return;
+      const thoughts = state.thoughts || [];
+      if (!thoughts.length) {
+        list.innerHTML = '<div class="text-zinc-400 text-center py-4 text-sm">还没有发布想法，写下第一条吧～</div>';
+        return;
+      }
+      list.innerHTML = thoughts.slice(0, 50).map((t) => {
+        const whoColor = t.who === 'panzi' ? 'text-pink-600' : 'text-violet-600';
+        const whoName = t.who === 'panzi' ? '小盘子' : '小果子';
+        const time = new Date(t.time).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return `<div class="rounded-xl border border-pink-100 bg-white/70 p-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-medium ${whoColor}">${whoName} · ${t.mood}</span>
+            <span class="text-[11px] text-zinc-400">${time}</span>
+          </div>
+          <div class="text-sm text-zinc-700 whitespace-pre-wrap break-words">${escapeHtml(t.text)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function addThought() {
+      const input = document.getElementById('new-thought-text');
+      const mood = document.getElementById('new-thought-mood').value;
+      const text = input.value.trim();
+      if (!text) return;
+      if (!state.thoughts) state.thoughts = [];
+      state.thoughts.unshift({
+        id: Date.now(),
+        who: myIdentity,
+        mood,
+        text,
+        time: new Date().toISOString()
+      });
+      state.thoughts = state.thoughts.slice(0, 80);
+      input.value = '';
+      emitEvent('thought', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 发布了新想法');
+      saveState();
+      renderThoughts();
+    }
+
     function renderAll() {
       updateLocationLabels();
       updateMissYouUI();
@@ -1167,13 +1279,16 @@
       renderPlaylist();
       renderCalls();
       renderTodos();
+      renderThoughts();
       updateCountdowns();
+      updateIdentityUI();
     }
 
     document.getElementById('call-date').value = new Date().toISOString().slice(0, 10);
 
     function init() {
       registerSW();
+      updateIdentityUI();
       updateClocks();
       setInterval(updateClocks, 1000);
       fetchWeather();
@@ -1182,6 +1297,20 @@
       setInterval(updateCountdowns, 60000);
       renderAll();
       lucide.createIcons();
+      window.addEventListener('online', () => {
+        setSyncStatus('syncing', '网络已恢复，正在同步...');
+      });
+      window.addEventListener('offline', () => {
+        setSyncStatus('offline', '网络断开');
+      });
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState !== 'visible' || !dbRef || !window.firebaseMods) return;
+        try {
+          const snap = await window.firebaseMods.get(dbRef);
+          const data = snap.val();
+          if (data) applyRemoteData(data);
+        } catch (e) {}
+      });
       // 首次进入时请求通知权限
       setTimeout(() => {
         if ('Notification' in window && Notification.permission === 'default') {

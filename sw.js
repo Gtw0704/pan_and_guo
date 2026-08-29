@@ -1,6 +1,6 @@
 // Service Worker - 支持后台通知 & 离线缓存
-const CACHE = 'ldr-hub-v1';
-const ASSETS = ['./index.html', './manifest.json'];
+const CACHE = 'ldr-hub-v2';
+const ASSETS = ['./', './index.html', './manifest.json', './sw.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -11,8 +11,32 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  const isPage = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+
+  if (isPage) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          const cloned = res.clone();
+          caches.open(CACHE).then((cache) => cache.put('./index.html', cloned));
+          return res;
+        })
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request).catch(() => caches.match('./index.html')))
+    caches.match(req).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
+        const cloned = res.clone();
+        caches.open(CACHE).then((cache) => cache.put(req, cloned));
+        return res;
+      });
+    })
   );
 });
 
