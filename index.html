@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#ec4899" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -50,7 +50,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     * { -webkit-tap-highlight-color: transparent; }
-    body { background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 50%, #fefce8 100%); min-height: 100vh; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    body { background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 50%, #fefce8 100%); min-height: 100vh; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+    /* 刘海屏 / 灵动岛适配：sticky header 自己顶一段安全区高度，这样吸顶时也不会被裁到状态栏下面 */
+    header.app-header { padding-top: env(safe-area-inset-top); }
+    footer.app-footer { padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem); }
     .glass { background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.6); }
     .card { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
     .card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(236,72,153,0.15); }
@@ -75,7 +78,20 @@
 <body class="font-sans text-zinc-700 antialiased">
   <div id="hearts-container"></div>
 
-  <header class="sticky top-0 z-50 glass border-b border-pink-100/50">
+  <!-- 身份选择只在第一次打开网站时出现一次；选完之后写进本机存储，网页端不会再提供任何修改入口 -->
+  <div id="identity-onboarding" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-6" style="background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 50%, #fefce8 100%);">
+    <div class="glass rounded-3xl p-8 max-w-sm w-full text-center">
+      <div class="text-4xl mb-3">💕</div>
+      <h2 class="font-display text-xl font-semibold text-zinc-800 mb-2">你是小盘子，还是小果子？</h2>
+      <p class="text-sm text-zinc-500 mb-6 leading-relaxed">选好之后就固定啦，这台设备上不会再改，请选对哦～</p>
+      <div class="flex flex-col gap-3">
+        <button onclick="chooseIdentityOnce('panzi')" class="py-3 rounded-xl bg-gradient-to-r from-pink-400 to-rose-400 text-white font-semibold shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all">我是小盘子</button>
+        <button onclick="chooseIdentityOnce('guozi')" class="py-3 rounded-xl bg-gradient-to-r from-violet-400 to-indigo-400 text-white font-semibold shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all">我是小果子</button>
+      </div>
+    </div>
+  </div>
+
+  <header class="app-header sticky top-0 z-50 glass border-b border-pink-100/50">
     <div class="max-w-6xl mx-auto px-4 py-3">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2">
@@ -104,41 +120,25 @@
       </div>
       <div class="flex items-center justify-center gap-2 mt-2 text-xs flex-wrap">
         <span id="sync-dot" class="sync-dot offline"></span>
-        <span id="sync-status" class="text-zinc-500">未连接云端</span>
+        <span id="sync-status" class="text-zinc-500">正在连接...</span>
         <span class="text-zinc-400">|</span>
         <span class="text-zinc-500">当前身份：<span id="identity-chip" class="font-medium text-pink-600">小盘子</span></span>
-        <button onclick="setIdentity('panzi')" class="text-pink-500 underline">我是小盘子</button>
-        <button onclick="setIdentity('guozi')" class="text-violet-500 underline">我是小果子</button>
-        <button onclick="document.getElementById('firebase-setup').classList.toggle('hidden')" class="text-pink-500 underline ml-1">配置同步</button>
         <button onclick="enableNotifications()" class="text-violet-500 underline ml-1">开启通知</button>
       </div>
     </div>
   </header>
 
-  <div id="firebase-setup" class="hidden max-w-6xl mx-auto px-4 pt-4">
-    <div class="glass rounded-2xl p-5 border border-pink-200">
-      <h3 class="font-semibold text-pink-600 mb-3">☁️ 配置实时同步（只需做一次）</h3>
-      <ol class="text-sm text-zinc-600 space-y-2 mb-4 list-decimal list-inside leading-relaxed">
-        <li>打开 <a href="https://console.firebase.google.com/" target="_blank" class="text-pink-500 underline">Firebase 控制台</a>，用 Google 账号登录</li>
-        <li>点击「添加项目」→ 名字随便写（如 panzi-guozi）→ 创建（分析可关掉）</li>
-        <li>左侧点「Realtime Database」→「创建数据库」→ 选「开始于测试模式」→ 完成</li>
-        <li>回到项目概览 → 点网页图标「</>」添加 Web 应用 → 注册后复制整个 <code class="bg-soft-100 px-1 rounded">firebaseConfig</code></li>
-        <li>把下面文本框替换成你自己的配置，点「保存并连接」</li>
-      </ol>
-      <textarea id="firebase-config-input" rows="8" class="w-full rounded-xl border border-pink-100 p-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-pink-300" placeholder='{
-  apiKey: "AIza...",
-  authDomain: "xxx.firebaseapp.com",
-  databaseURL: "https://xxx.firebasedatabase.app",
-  projectId: "xxx",
-  storageBucket: "xxx.appspot.com",
-  messagingSenderId: "123",
-  appId: "1:123:web:abc"
-}'></textarea>
-      <div class="flex gap-2 mt-3">
-        <button onclick="saveFirebaseConfig()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition">保存并连接</button>
-        <button onclick="document.getElementById('firebase-setup').classList.add('hidden')" class="bg-soft-200 text-zinc-600 px-4 py-2 rounded-xl text-sm">关闭</button>
-      </div>
-      <p class="text-[11px] text-zinc-400 mt-3">数据库保持测试模式即可（仅你们两人使用）。配置保存在本机浏览器。</p>
+  <!-- 这个提示只有在代码里的 FIREBASE_CONFIG 还没填写时才会出现，是给维护网站的人（你）看的一次性提示，
+       小盘子和小果子平时打开网站不会看到它，也不需要做任何配置。 -->
+  <div id="dev-setup-notice" class="hidden max-w-6xl mx-auto px-4 pt-4">
+    <div class="glass rounded-2xl p-5 border border-amber-200">
+      <h3 class="font-semibold text-amber-600 mb-3">⚠️ 给维护者的一次性提示：还没接好云端</h3>
+      <p class="text-sm text-zinc-600 leading-relaxed mb-2">
+        这不是给小盘子/小果子看的设置面板 —— 现在的连接方式已经改成「写死在代码里、部署一次，两人打开就自动连上」，
+        不会再有需要手动粘贴配置的按钮了。你只需要在 <code class="bg-soft-100 px-1 rounded">index.html</code> 里搜索
+        <code class="bg-soft-100 px-1 rounded">FIREBASE_CONFIG</code>，把里面的占位符换成你自己的 Firebase 项目信息，提交到仓库、
+        GitHub Pages 重新部署后，这条提示就会自动消失，之后谁打开网站都不用管连接的事。
+      </p>
     </div>
   </div>
 
@@ -203,11 +203,6 @@
         <i data-lucide="message-circle-heart" class="w-5 h-5 text-pink-500"></i>
         <h2 class="font-semibold text-zinc-800">随机一问</h2>
         <span class="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full" id="question-date"></span>
-        <div class="ml-auto flex items-center gap-1 text-xs">
-          <span class="text-zinc-400">我是：</span>
-          <button id="btn-identity-panzi" onclick="setIdentity('panzi')" class="px-2 py-1 rounded-lg bg-pink-500 text-white">小盘子</button>
-          <button id="btn-identity-guozi" onclick="setIdentity('guozi')" class="px-2 py-1 rounded-lg bg-soft-100 text-zinc-600">小果子</button>
-        </div>
       </div>
       <p id="daily-question" class="text-lg text-zinc-700 font-medium mb-4 leading-relaxed">加载中...</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -223,7 +218,18 @@
           </div>
         </div>
       </div>
-      <p class="text-[11px] text-zinc-400 mt-2">💡 选择「我是谁」后，左侧就是你的回答框。双方都提交后，对方答案才会取消模糊。</p>
+      <p class="text-[11px] text-zinc-400 mt-2">💡 双方都提交后，对方答案才会取消模糊。</p>
+      <details class="mt-3">
+        <summary class="text-xs text-pink-500 cursor-pointer select-none">➕ 添加自己的问题（当前题库里有 <span id="custom-question-count">0</span> 道自定义问题）</summary>
+        <div class="mt-2 space-y-2">
+          <p class="text-[11px] text-zinc-400 leading-relaxed">加进来的问题会跟内置题库合并，以后随机抽到；题库会一直增加，不会有被问完的一天。</p>
+          <div class="flex gap-2">
+            <input id="new-custom-question" type="text" placeholder="想到什么好问题就加进来..." class="flex-1 rounded-xl border border-pink-100 bg-white/80 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+            <button onclick="addCustomQuestion()" class="text-xs bg-pink-500 text-white px-3 py-2 rounded-lg hover:bg-pink-600 transition shrink-0">添加</button>
+          </div>
+          <div id="custom-question-list" class="max-h-32 overflow-y-auto"></div>
+        </div>
+      </details>
     </section>
 
     <section class="glass rounded-2xl p-5 card">
@@ -233,6 +239,9 @@
           <h2 class="font-semibold text-zinc-800">时间表</h2>
         </div>
         <div class="flex gap-2 text-xs items-center">
+          <button onclick="openScheduleTemplateEditor()" class="px-2 py-1 rounded-lg bg-lavender-100 hover:bg-lavender-200 text-violet-600 font-medium" title="设置每周固定作息，之后每个新的一天会自动套用">
+            📋 每周模板
+          </button>
           <button onclick="changeScheduleDay(-1)" class="px-2 py-1 rounded-lg bg-soft-100 hover:bg-soft-200">←</button>
           <span id="schedule-day-label" class="px-2 py-1 font-medium"></span>
           <button onclick="changeScheduleDay(1)" class="px-2 py-1 rounded-lg bg-soft-100 hover:bg-soft-200">→</button>
@@ -256,7 +265,7 @@
         <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-300"></span> 可通话</span>
         <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-pink-400 animate-pulse"></span> 通话窗口</span>
       </div>
-      <p class="text-[11px] text-zinc-400 mt-2">点击切换状态 · 双方都「可通话」自动高亮 · 伦敦时间自动处理冬夏令时</p>
+      <p class="text-[11px] text-zinc-400 mt-2">点击切换状态（只能改自己那一栏，对方那一栏点了没反应） · 双方都「可通话」自动高亮 · 伦敦时间自动处理冬夏令时</p>
     </section>
 
     <section class="glass rounded-2xl p-5 card">
@@ -319,11 +328,16 @@
         <div class="text-xs text-zinc-500 mb-2">近7天通话时长 (分钟)</div>
         <div id="call-chart" class="flex items-end gap-1 h-24"></div>
       </div>
+      <div class="flex flex-wrap items-center gap-2 mb-3 p-3 rounded-xl bg-lavender-50/60 border border-lavender-100">
+        <button id="call-timer-btn" onclick="toggleCallTimer()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition">⏱ 开始通话计时</button>
+        <span id="call-timer-display" class="hidden font-mono text-lg font-semibold text-pink-600 tabular-nums">00:00</span>
+        <span class="text-[11px] text-zinc-400 basis-full sm:basis-auto">微信通话本身没法被网页自动读取，但可以用这个计时器：通话开始/结束各点一下，会自动帮你算好时长并记录，不用自己心算。</span>
+      </div>
       <div class="flex flex-wrap gap-2 mb-3">
         <input id="call-date" type="date" class="rounded-xl border border-pink-100 px-3 py-2 text-sm">
         <input id="call-hours" type="number" min="0" max="12" placeholder="小时" class="w-20 rounded-xl border border-pink-100 px-3 py-2 text-sm">
         <input id="call-mins" type="number" min="0" max="59" placeholder="分钟" class="w-20 rounded-xl border border-pink-100 px-3 py-2 text-sm">
-        <button onclick="addCall()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition">记录通话</button>
+        <button onclick="addCall()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition">手动记录</button>
       </div>
       <div id="call-list" class="space-y-2 max-h-40 overflow-y-auto text-sm"></div>
     </section>
@@ -359,17 +373,44 @@
     </section>
 
     <section class="glass rounded-2xl p-5 card">
+      <div class="flex items-center gap-2 mb-1">
+        <i data-lucide="shield-check" class="w-5 h-5 text-pink-500"></i>
+        <h2 class="font-semibold text-zinc-800">各自代办（互相监督）</h2>
+      </div>
+      <p class="text-[11px] text-zinc-400 mb-4">自己给自己列的任务，只有自己能添加/勾选/删除，对方只能看——用来互相监督完成进度。</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <h3 id="personal-todo-my-label" class="text-xs font-medium text-pink-600 mb-2">我的代办</h3>
+          <div id="personal-todo-my-list" class="space-y-1.5 mb-3"></div>
+          <div class="flex gap-2">
+            <input id="new-personal-todo" type="text" placeholder="给自己加一条代办..." class="flex-1 rounded-xl border border-pink-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300">
+            <button onclick="addPersonalTodo()" class="bg-pink-500 text-white px-3 py-2 rounded-xl text-sm hover:bg-pink-600 transition shrink-0">添加</button>
+          </div>
+        </div>
+        <div>
+          <h3 id="personal-todo-partner-label" class="text-xs font-medium text-violet-600 mb-2">对方的代办</h3>
+          <div id="personal-todo-partner-list" class="space-y-1.5"></div>
+          <p class="text-[11px] text-zinc-400 mt-2">只能看，不能改，帮忙监督对方哦～</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass rounded-2xl p-5 card">
       <div class="flex items-center gap-2 mb-4">
         <i data-lucide="notebook-pen" class="w-5 h-5 text-pink-500"></i>
         <h2 class="font-semibold text-zinc-800">心情与想法</h2>
       </div>
       <div class="flex flex-col sm:flex-row gap-2 mb-3">
-        <select id="new-thought-mood" class="rounded-xl border border-pink-100 px-3 py-2 text-sm">
-          <option value="💗 开心">💗 开心</option>
-          <option value="💕 想你">💕 想你</option>
-          <option value="🌧️ 有点累">🌧️ 有点累</option>
-          <option value="✨ 期待见面">✨ 期待见面</option>
-        </select>
+        <div class="flex flex-col gap-1">
+          <select id="new-thought-mood" onchange="toggleCustomMoodInput()" class="rounded-xl border border-pink-100 px-3 py-2 text-sm">
+            <option value="💗 开心">💗 开心</option>
+            <option value="💕 想你">💕 想你</option>
+            <option value="🌧️ 有点累">🌧️ 有点累</option>
+            <option value="✨ 期待见面">✨ 期待见面</option>
+            <option value="custom">✏️ 自定义...</option>
+          </select>
+          <input id="new-thought-mood-custom" type="text" placeholder="输入自定义心情，如 🥳 太开心啦" class="hidden rounded-xl border border-pink-100 px-3 py-2 text-sm w-full sm:w-40">
+        </div>
         <textarea id="new-thought-text" rows="2" placeholder="写下今天的想法..." class="flex-1 rounded-xl border border-pink-100 bg-white/80 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 resize-none"></textarea>
         <button onclick="addThought()" class="bg-pink-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-pink-600 transition whitespace-nowrap self-start sm:self-auto">发布</button>
       </div>
@@ -378,20 +419,110 @@
 
   </main>
 
-  <footer class="text-center py-6 text-xs text-zinc-400">
-    小盘子 💕 小果子 · 配置 Firebase 后两边实时同步
+  <!-- 「每周模板」编辑器：藏在这个独立的全屏面板里，平时完全看不到，只有点「每周模板」按钮才会打开，
+       相当于把这个设置藏在了「下一页」。这里改的是每周固定作息，不是某一天的实际安排。 -->
+  <div id="template-editor-overlay" class="hidden fixed inset-0 z-[9998] bg-black/30 flex items-center justify-center p-4">
+    <div class="glass rounded-3xl p-5 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display text-lg font-semibold text-zinc-800">📋 每周固定模板</h2>
+        <button onclick="closeScheduleTemplateEditor()" class="text-zinc-400 hover:text-zinc-600 text-xl leading-none">×</button>
+      </div>
+      <p class="text-xs text-zinc-500 mb-3 leading-relaxed">
+        在这里设置「周一到周日」各自默认的作息。以后每次翻到一个还没手动改过的新日期，会自动套用当天对应星期的模板，
+        不用每天重新点一遍。<b>已经手动改过的具体某一天不会被这里的修改覆盖。</b>
+      </p>
+      <div class="flex gap-1 mb-4 flex-wrap text-xs" id="template-day-tabs"></div>
+      <div class="overflow-x-auto">
+        <div class="min-w-[420px]">
+          <div class="grid grid-cols-[52px_1fr_1fr] gap-1 mb-1 text-[11px] font-medium text-zinc-500">
+            <div></div>
+            <div class="text-center text-pink-600">🇨🇳 小盘子</div>
+            <div class="text-center text-violet-600">🇬🇧 小果子</div>
+          </div>
+          <div id="template-grid" class="space-y-0.5"></div>
+        </div>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2 text-xs">
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-300"></span> 空闲</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-300"></span> 工作/学习</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-indigo-300"></span> 睡觉</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-300"></span> 可通话</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-pink-400 animate-pulse"></span> 通话窗口</span>
+      </div>
+      <p class="text-[11px] text-zinc-400 mt-3">点击格子切换状态 · 这里的时间是各自的本地时间，跟时区无关</p>
+    </div>
+  </div>
+
+  <footer class="app-footer text-center py-6 text-xs text-zinc-400">
+    小盘子 💕 小果子 · 自动实时同步，无需手动配置
   </footer>
 
   <script type="module">
     import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js';
     import { getDatabase, ref, set, onValue, get } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js';
-    window.firebaseMods = { initializeApp, getApps, getApp, getDatabase, ref, set, onValue, get };
+    import { getMessaging, getToken } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-messaging.js';
+    window.firebaseMods = { initializeApp, getApps, getApp, getDatabase, ref, set, onValue, get, getMessaging, getToken };
   </script>
 
   <script>
     const STORAGE_KEY = 'ldr_hub_v3_panzi_guozi';
-    const FB_CONFIG_KEY = 'ldr_firebase_config';
     const DB_PATH = 'couples/panzi-guozi';
+
+    // ===================== 一次性写死的云端配置 =====================
+    // 维护者（你）只需要填一次，填好提交部署后，小盘子和小果子打开网站就会自动连上，
+    // 不会再看到任何“配置同步”的按钮或输入框。
+    // 获取方式：Firebase 控制台 (https://console.firebase.google.com/) → 建一个免费项目
+    // → 左侧开启 Realtime Database（测试模式即可）→ 项目概览点「</>」注册一个 Web 应用
+    // → 把生成的一整段 firebaseConfig 原样粘到下面。
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyDn29pCHQXzYURb8nm3tiyLMQyJT8l15ZI",
+        authDomain: "panguo-1354b.firebaseapp.com",
+        databaseURL: "https://panguo-1354b-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "panguo-1354b",
+        storageBucket: "panguo-1354b.firebasestorage.app",
+        messagingSenderId: "863341260337",
+        appId: "1:863341260337:web:3db1005b0d4e27e2682f10"
+    };
+    function isFirebaseConfigured() {
+      return !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL);
+    }
+
+    // ===================== 推送通知配置（网站完全关闭也能收到） =====================
+    // 这两个值需要你自己填一次：
+    // 1. vapidKey：Firebase 控制台 → 项目设置（齿轮图标）→「Cloud Messaging」标签页 →
+    //    「网页配置」下的「网页推送证书」→ 生成密钥对 → 把那一串复制过来。
+    // 2. triggerUrl：你部署的 Cloudflare Worker 地址（见 push-worker.js 和部署说明），
+    //    这个 Worker 负责真正把推送发出去，网页本身不能直接发（涉及一个不能公开的密钥）。
+    // 这两个只要有一个没填，网站会自动退回到"只有对方打开着网页才会收到通知"的旧模式，不会报错。
+    const PUSH_CONFIG = {
+      vapidKey: "BL-pNzTQx2MyFQGOAMj-Y4PK0wIC2U6md_e0VscpQd_Ec93f2bthoC5q4i1LWTsM-b9pC43KkbmwPJ1mJcxK9-Y",
+      triggerUrl: "https://panzi-guozi-push.gtw0704.workers.dev"
+    };
+    function isPushConfigured() {
+      return !!(PUSH_CONFIG.vapidKey && PUSH_CONFIG.triggerUrl);
+    }
+    let firebaseApp = null; // initFirebase() 里会赋值，推送功能要用它拿到 messaging 实例
+
+    // 每周模板：一天的默认作息（跟以前 ensureSchedule 里写死的默认值一样）
+    function buildDefaultDayTemplate() {
+      const day = { china: {}, london: {} };
+      for (let h = 0; h < 24; h++) {
+        day.china[h] = (h >= 9 && h < 18) ? 'work' : (h >= 23 || h < 7) ? 'sleep' : 'free';
+        day.london[h] = (h >= 9 && h < 17) ? 'work' : (h >= 23 || h < 7) ? 'sleep' : 'free';
+      }
+      day.china[20] = 'available';
+      day.china[21] = 'available';
+      day.london[12] = 'available';
+      day.london[13] = 'available';
+      day.london[20] = 'available';
+      return day;
+    }
+    // 一周七天，每天都先给同一份默认模板，之后可以在「每周模板」里逐天分别修改
+    function buildDefaultTemplate() {
+      const tmpl = {};
+      ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].forEach(k => { tmpl[k] = buildDefaultDayTemplate(); });
+      return tmpl;
+    }
 
     const defaultState = {
       startTogether: '2023-06-15',
@@ -407,7 +538,11 @@
         { who: 'guozi', time: '2026-07-27T09:15:00', label: '小果子' }
       ],
       answers: {},
+      customQuestions: [],
+      personalTodos: { panzi: [], guozi: [] },
+      pushTokens: { panzi: null, guozi: null },
       schedule: {},
+      scheduleTemplate: buildDefaultTemplate(),
       playlist: [
         { id: 1, title: '晴天 - 周杰伦', qq: 'https://y.qq.com/n/ryqq/songDetail/001RaE0N4Z3vJz', apple: 'https://music.apple.com/cn/song/晴天/1445145270', playing: false },
         { id: 2, title: 'Perfect - Ed Sheeran', qq: '', apple: 'https://music.apple.com/us/song/perfect/1193701392', playing: true },
@@ -436,7 +571,7 @@
     let isRemoteUpdate = false;
     let saveTimeout = null;
     // 本机身份（不上传云端，每人自己选）
-    let myIdentity = localStorage.getItem('ldr_my_identity') || 'panzi';
+    let myIdentity = localStorage.getItem('ldr_my_identity') || null; // null = 还没选过，会强制弹一次身份选择
     let lastSeenEventTime = localStorage.getItem('ldr_last_seen_event') || '';
     let swRegistration = null;
     let unsubscribeCloud = null;
@@ -480,6 +615,49 @@
       } catch (e) {}
     }
 
+    // ===================== 真正的推送通知（网站完全关闭也能收到） =====================
+    // 只有配置好了 PUSH_CONFIG（vapidKey + triggerUrl）、浏览器支持、且已经授权通知权限，才会真正注册。
+    // 注册成功后会拿到一个"推送 token"，存进共享数据库（state.pushTokens[我的身份]），
+    // 这样对方那台设备发消息时，能查到"该发到哪个 token"。
+    async function setupPushToken() {
+      try {
+        if (!isPushConfigured()) return;
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (!firebaseApp || !window.firebaseMods || !window.firebaseMods.getMessaging) return;
+        if (!myIdentity) return; // 还没选身份，不知道该存到 pushTokens 的哪个 key 下
+        const reg = swRegistration || await navigator.serviceWorker.ready;
+        const messaging = window.firebaseMods.getMessaging(firebaseApp);
+        const token = await window.firebaseMods.getToken(messaging, {
+          vapidKey: PUSH_CONFIG.vapidKey,
+          serviceWorkerRegistration: reg
+        });
+        if (!token) return;
+        const myKey = myIdentity === 'panzi' ? 'panzi' : 'guozi';
+        if (!state.pushTokens) state.pushTokens = { panzi: null, guozi: null };
+        if (state.pushTokens[myKey] !== token) {
+          state.pushTokens[myKey] = token;
+          saveState();
+        }
+      } catch (e) {
+        console.log('推送 token 注册失败（不影响其他功能）', e);
+      }
+    }
+
+    // 尽力而为地通知对方——没配置推送服务器、或者对方还没拿到过 token（比如对方压根没打开过网站/没授权通知），
+    // 这里就什么都不做，直接跳过，不会报错也不会影响其他功能。
+    function sendPushToPartner(title, body) {
+      if (!isPushConfigured()) return;
+      const partnerKey = myIdentity === 'panzi' ? 'guozi' : 'panzi';
+      const token = state.pushTokens && state.pushTokens[partnerKey];
+      if (!token) return;
+      fetch(PUSH_CONFIG.triggerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, title, body })
+      }).catch(() => {});
+    }
+
     function emitEvent(type, message) {
       const by = myIdentity === 'panzi' ? '小盘子' : '小果子';
       state.lastEvent = {
@@ -491,6 +669,9 @@
       // 自己发出的事件不弹给自己
       lastSeenEventTime = state.lastEvent.time;
       localStorage.setItem('ldr_last_seen_event', lastSeenEventTime);
+      // 主动推给对方的设备——即使对方网站完全没打开，也能收到系统通知（前提是 PUSH_CONFIG 配置好了）；
+      // 没配置的话 sendPushToPartner 内部会直接跳过，不影响原本"打开着网页才会弹"的旧逻辑（那个走 handleRemoteEvent）。
+      sendPushToPartner(by + ' 更新了小窝', message);
     }
 
     function handleRemoteEvent(event) {
@@ -528,20 +709,6 @@
       document.getElementById('sync-status').textContent = text;
     }
 
-    function saveFirebaseConfig() {
-      const raw = document.getElementById('firebase-config-input').value.trim();
-      if (!raw) return alert('请粘贴 firebaseConfig');
-      try {
-        let config = (new Function('return ' + raw))();
-        if (!config.apiKey || !config.databaseURL) return alert('配置不完整，需包含 apiKey 和 databaseURL');
-        localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(config));
-        document.getElementById('firebase-setup').classList.add('hidden');
-        initFirebase(config);
-      } catch (e) {
-        alert('配置格式错误：' + e.message);
-      }
-    }
-
     function initFirebase(config) {
       if (!window.firebaseMods) {
         setTimeout(() => initFirebase(config), 400);
@@ -550,6 +717,7 @@
       try {
         const { initializeApp, getDatabase, ref, onValue, getApps, getApp } = window.firebaseMods;
         const app = getApps().length ? getApp() : initializeApp(config);
+        firebaseApp = app;
         const db = getDatabase(app);
         dbRef = ref(db, DB_PATH);
         setSyncStatus('syncing', '正在连接...');
@@ -569,6 +737,7 @@
           setSyncStatus('offline', '连接失败');
         });
         startCloudPolling();
+        setupPushToken(); // Firebase 连上之后顺便试一次注册推送 token（如果还没配置/没授权通知权限，函数内部会自己跳过）
       } catch (e) {
         console.error(e);
         setSyncStatus('offline', '初始化失败');
@@ -585,6 +754,16 @@
         };
       }
       if (!state.locations) state.locations = JSON.parse(JSON.stringify(defaultState.locations));
+      // 老数据里可能还没有 scheduleTemplate，或者缺了某几天，逐天补齐默认值，避免访问到 undefined
+      const tmpl = state.scheduleTemplate || {};
+      state.scheduleTemplate = {};
+      ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].forEach(k => {
+        state.scheduleTemplate[k] = tmpl[k] ? { china: { ...tmpl[k].china }, london: { ...tmpl[k].london } } : buildDefaultDayTemplate();
+      });
+      if (!state.personalTodos) state.personalTodos = { panzi: [], guozi: [] };
+      if (!Array.isArray(state.personalTodos.panzi)) state.personalTodos.panzi = [];
+      if (!Array.isArray(state.personalTodos.guozi)) state.personalTodos.guozi = [];
+      if (!state.pushTokens) state.pushTokens = { panzi: null, guozi: null };
       saveLocal();
       renderAll();
       fetchWeather();
@@ -629,13 +808,13 @@
     }
 
     (function tryAutoConnect() {
-      const saved = localStorage.getItem(FB_CONFIG_KEY);
-      if (saved) {
-        try {
-          const config = JSON.parse(saved);
-          document.getElementById('firebase-config-input').value = JSON.stringify(config, null, 2);
-          setTimeout(() => initFirebase(config), 600);
-        } catch (e) {}
+      if (isFirebaseConfigured()) {
+        setSyncStatus('syncing', '正在自动连接...');
+        setTimeout(() => initFirebase(FIREBASE_CONFIG), 300);
+      } else {
+        // 代码里的 FIREBASE_CONFIG 还没填，给维护者看的一次性提示（普通使用者看不到，也不用管）
+        setSyncStatus('offline', '本机模式（未连云端）');
+        document.getElementById('dev-setup-notice').classList.remove('hidden');
       }
     })();
 
@@ -826,7 +1005,9 @@
       }
     }
 
-    const questions = [
+    // 内置题库：现在有 70+ 道，之后还能通过下面的「添加自己的问题」功能无限扩展，
+    // 不会像纯写死的固定列表那样迟早被问完（见 getQuestionPool / getDailyQuestion）
+    const builtinQuestions = [
       "今天有什么让你开心地笑了？", "我们最喜欢的共同回忆是什么？",
       "如果现在能瞬移到对方身边，你最想做什么？", "最近听的一首歌让你想到了对方吗？",
       "你今天最想对对方说的一句话是什么？", "我们下次见面最想一起做的三件事？",
@@ -834,30 +1015,149 @@
       "如果给这段异地恋打分，你会给几分？为什么？", "你最喜欢对方身上的哪个小习惯？",
       "今天的天气让你想起了什么？", "如果只能带三样东西去见对方，你会带什么？",
       "最近一次做梦梦到对方是什么场景？", "我们之间有什么「只有我们知道」的暗号或笑话？",
-      "你希望未来五年我们在哪里？"
+      "你希望未来五年我们在哪里？",
+      "这个星期最累的一件事是什么？对方能怎么帮你？", "你现在最想吃对方做的哪道菜？",
+      "如果我们现在视频，你会先说什么？", "最近有没有什么小成就想跟对方炫耀一下？",
+      "你觉得我们俩最像的一点是什么？", "你觉得我们俩最不像、但很互补的一点是什么？",
+      "有没有哪句我说过的话，你一直记到现在？", "如果可以送对方一份「非实体」的礼物，你会送什么？",
+      "最近有没有什么烦恼一直没跟对方说？", "你最近一次特别想拥抱对方是什么时候？",
+      "我们认识以来，你印象最深的一次对话是什么？", "如果可以一起看一场日出或日落，你想在哪里？",
+      "最近有没有梦到过我们的未来？梦到了什么？", "你觉得异地恋教会了你什么？",
+      "有什么关于对方的小细节，是只有你才注意到的？", "你今天有没有想起我们的哪张合照？",
+      "如果我们此刻在同一个城市，你想先带我去哪？", "最近工作/学习里有什么想第一时间告诉对方的？",
+      "你觉得我们俩之间最需要改进的沟通方式是什么？", "有没有什么以前不敢说、现在想说的话？",
+      "如果要用一种天气形容你现在的心情，会是什么天气？", "你最近有没有因为想对方而分心？在做什么的时候？",
+      "如果我们养一只宠物，你希望是什么？取什么名字？", "你觉得对方最近有没有什么变化？",
+      "有什么歌，你觉得完全就是在唱我们？", "如果给我们的爱情写一本书，你会取什么书名？",
+      "最近有没有什么新爱好想分享给对方？", "你今天最期待的一件小事是什么？",
+      "有没有哪个瞬间，你突然觉得「啊，很想他/她」？", "如果我们能一起旅行一周，你最想去哪？",
+      "你最近读到/看到什么内容，觉得很适合讲给对方听？", "有什么事，你觉得只有对方能安慰你？",
+      "如果可以现在给对方一个惊喜，你会准备什么？", "你觉得这段关系里，你最珍惜的是什么？",
+      "最近有没有什么小情绪，是因为想念对方而产生的？", "你希望我们下次见面的第一句话是什么？",
+      "如果要给彼此起一个只有对方懂的昵称，你会取什么？", "有什么食物，是你想以后一起吃的？",
+      "最近有没有什么事让你觉得「这就是爱情该有的样子」？", "你觉得对方在异地恋里最辛苦的部分是什么？",
+      "如果可以一起做一件从没做过的事，你想做什么？", "有没有什么梦想，是你希望和对方一起完成的？",
+      "最近有没有什么让你想起我们第一次见面的瞬间？", "你觉得我们俩相处起来最舒服的地方是什么？",
+      "如果今天是我们的纪念日，你想怎么过？", "有什么话，你觉得应该更常对对方说？",
+      "最近有没有什么小成长，是因为这段感情带来的？", "你希望十年后的我们是什么样子？",
+      "有什么歌单/播放列表，你觉得很适合我们一起听？", "如果可以一起追一部剧，你想看哪部？",
+      "今天有没有什么瞬间，让你特别想给对方发消息？", "你觉得我们之间最珍贵的默契是什么？",
+      "有没有什么小仪式感，是你希望我们保持的？", "最近的生活里，什么事最让你安心？",
+      "如果要用一句话总结这周，你会怎么说？", "你觉得异地恋里，什么时刻最幸福？",
+      "你今天穿了什么？如果对方在，你猜他/她会怎么评价？", "有没有哪句歌词，特别像在说我们的故事？",
+      "如果可以复制粘贴今天的一个瞬间留到以后，你会选哪个？", "你最近有没有对着手机傻笑过？因为什么？",
+      "如果我们能拥有一整个只属于自己的周末，你想怎么安排？", "有什么事，你一直想做却还没找到合适的时机？",
+      "你觉得这段时间里，我们俩谁变化更大？", "如果对方现在敲门出现在你面前，你的第一反应会是什么？",
+      "有没有什么习惯，是因为认识对方之后才养成的？", "你最近一次因为对方而感到骄傲是什么时候？",
+      "如果可以把这周的心情做成一张专辑封面，会是什么画面？", "有什么小事，你觉得对方一直默默为你做着？",
+      "你希望对方在你不开心的时候，具体怎么安慰你？", "如果我们能一起养一盆植物，你想养什么？",
+      "有没有什么话题，你们俩总是能聊很久？", "最近有没有什么新闻或八卦，特别想跟对方讨论？",
+      "如果可以给彼此写一封「未来才能拆开」的信，你现在最想写什么？", "你觉得这段感情最让你有安全感的地方是什么？",
+      "有没有什么时刻，你觉得对方比想象中更懂你？", "如果要给我们的关系做一个「进度条」，你觉得现在走到哪一步了？",
+      "最近有没有什么小确幸，是跟对方有关的？", "你希望这周末对方能有多一点时间陪你聊天吗？",
+      "有什么事，你一直想问对方，但还没问出口？", "如果可以现在打包一份「家乡味道」寄给对方，你会寄什么？",
+      "你觉得我们俩谁更容易在异地恋里感到孤单？为什么？", "有没有什么歌，是你们的「专属 BGM」？",
+      "如果要给彼此的性格各挑一个关键词，你会怎么形容？", "最近有没有什么事，是靠对方的鼓励才做到的？",
+      "如果我们能一起做一次「深夜卧谈会」，你最想聊什么话题？", "你觉得对方最近的语气/文字里，藏着什么情绪？",
+      "有没有什么电影台词，特别适合形容我们？", "如果可以现在暂停时间半小时，你想跟对方做什么？",
+      "你最近有没有因为工作/学习太忙而忽略了对方？打算怎么补偿？", "有什么小习惯，是你希望对方也养成的？",
+      "如果我们要合作做一件事（比如做饭、布置房间），你觉得谁会负责什么？", "最近有没有一瞬间，你觉得「异地也没那么难熬」？",
+      "你觉得我们俩吵架的时候，谁会先服软？", "有没有什么事，是你觉得只要有对方在就不会害怕？",
+      "如果可以给我们的故事配一首主题曲，你会选哪首？", "最近有没有什么让你重新认识对方的瞬间？",
+      "你希望对方在你忙的时候，怎么跟你保持联系比较好？", "有没有什么地方，是你特别想带对方去看看的？",
+      "如果我们能一起做一份「专属清单」，你想列什么内容？", "你最近一次因为想对方而失眠是什么时候？",
+      "有什么关于未来的计划，你还没跟对方说过？", "如果要给这段感情打一个「小奖状」，你会写什么理由？",
+      "你觉得我们俩之间，谁更擅长表达爱意？",
+      "有没有一件小事，你一直想感谢对方却没说出口？", "如果可以现在给对方一个拥抱，你会抱多久？"
     ];
+
+    // 自定义问题：state.customQuestions 里存的是你们自己后来添加的问题（字符串数组），
+    // 会跟内置题库合并进同一个题库池，之后每天的题目从整个池子里抽——这样题库能持续扩充，不会有被问完的一天。
+    function getQuestionPool() {
+      const custom = (state.customQuestions || []).filter(q => typeof q === 'string' && q.trim());
+      return [...builtinQuestions, ...custom];
+    }
+
+    // 一个简单的可复现随机数生成器（同一个 seed 每次生成的序列完全一样），
+    // 用来保证小盘子和小果子两台设备在没有额外通信的情况下，也能在同一天算出同一道题。
+    function mulberry32(seed) {
+      return function () {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function shuffledIndices(n, seed) {
+      const rand = mulberry32(seed);
+      const arr = Array.from({ length: n }, (_, i) => i);
+      for (let i = n - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
 
     function getDailyQuestion() {
       const today = new Date().toISOString().slice(0, 10);
-      const dayIndex = Math.floor(new Date(today).getTime() / 86400000) % questions.length;
-      return { date: today, text: questions[dayIndex] };
+      const pool = getQuestionPool();
+      const dayIndex = Math.floor(new Date(today).getTime() / 86400000);
+      // 把题库池打乱一整轮再顺序发，发完一轮再重新洗牌发下一轮——
+      // 保证每道题都被问到一次才会重复，而不是像单纯 % 取模那样立刻循环。
+      const n = pool.length;
+      const cycle = Math.floor(dayIndex / n);
+      const posInCycle = dayIndex % n;
+      const order = shuffledIndices(n, cycle);
+      return { date: today, text: pool[order[posInCycle]] };
     }
 
-    function setIdentity(who) {
+    function addCustomQuestion() {
+      const input = document.getElementById('new-custom-question');
+      const text = input.value.trim();
+      if (!text) return;
+      if (!state.customQuestions) state.customQuestions = [];
+      state.customQuestions.push(text);
+      input.value = '';
+      emitEvent('custom_question', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 添加了一道新问题');
+      saveState();
+      renderCustomQuestionList();
+    }
+
+    function removeCustomQuestion(index) {
+      if (!state.customQuestions) return;
+      state.customQuestions.splice(index, 1);
+      saveState();
+      renderCustomQuestionList();
+    }
+
+    function renderCustomQuestionList() {
+      const list = document.getElementById('custom-question-list');
+      if (!list) return;
+      const items = state.customQuestions || [];
+      document.getElementById('custom-question-count').textContent = items.length;
+      if (!items.length) {
+        list.innerHTML = '<div class="text-zinc-400 text-xs">还没有自定义问题，添加一个试试～</div>';
+        return;
+      }
+      list.innerHTML = items.map((q, i) => `
+        <div class="flex items-start justify-between gap-2 text-xs py-1">
+          <span class="text-zinc-600 flex-1">${escapeHtml(q)}</span>
+          <button onclick="removeCustomQuestion(${i})" class="text-zinc-300 hover:text-red-400 shrink-0">×</button>
+        </div>`).join('');
+    }
+
+    // 身份选择只允许发生一次：一旦 myIdentity 已经有值，这个函数直接什么都不做。
+    // 网页端没有任何按钮能再调用它去修改身份——onboarding 遮罩用完就没有第二个入口了。
+    function chooseIdentityOnce(who) {
+      if (myIdentity) return;
       myIdentity = who;
       localStorage.setItem('ldr_my_identity', who);
-      // 更新按钮样式
-      const bp = document.getElementById('btn-identity-panzi');
-      const bg = document.getElementById('btn-identity-guozi');
-      if (who === 'panzi') {
-        bp.className = 'px-2 py-1 rounded-lg bg-pink-500 text-white';
-        bg.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
-      } else {
-        bg.className = 'px-2 py-1 rounded-lg bg-violet-500 text-white';
-        bp.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
-      }
+      const overlay = document.getElementById('identity-onboarding');
+      if (overlay) overlay.classList.add('hidden');
       renderDailyQuestion();
       updateIdentityUI();
+      setupPushToken();
     }
 
     function updateIdentityUI() {
@@ -915,19 +1215,6 @@
         partnerBox.classList.add('blur-answer');
         partnerBox.classList.remove('revealed');
       }
-
-      // 同步身份按钮样式
-      const bp = document.getElementById('btn-identity-panzi');
-      const bg = document.getElementById('btn-identity-guozi');
-      if (bp && bg) {
-        if (myIdentity === 'panzi') {
-          bp.className = 'px-2 py-1 rounded-lg bg-pink-500 text-white';
-          bg.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
-        } else {
-          bg.className = 'px-2 py-1 rounded-lg bg-violet-500 text-white';
-          bp.className = 'px-2 py-1 rounded-lg bg-soft-100 text-zinc-600';
-        }
-      }
     }
 
     function submitMyAnswer() {
@@ -952,35 +1239,52 @@
     };
     const statusLabels = { free: '空闲', work: '工作', sleep: '睡觉', available: '可通话', call: '通话!' };
 
+    // 'china' 列固定对应 panzi，'london' 列固定对应 guozi（历史遗留 key 名，见 README）。
+    // 用这个算出「我自己能编辑的是哪一列」，另一列只能看不能改。
+    function myScheduleColumn() {
+      return myIdentity === 'panzi' ? 'china' : 'london';
+    }
+
     function getScheduleDate() {
       const d = new Date();
       d.setDate(d.getDate() + scheduleOffset);
       return d.toISOString().slice(0, 10);
     }
 
-    function ensureSchedule(date) {
-      if (!state.schedule[date]) {
-        state.schedule[date] = { china: {}, london: {} };
-        for (let h = 0; h < 24; h++) {
-          state.schedule[date].china[h] = (h >= 9 && h < 18) ? 'work' : (h >= 23 || h < 7) ? 'sleep' : 'free';
-          state.schedule[date].london[h] = (h >= 9 && h < 17) ? 'work' : (h >= 23 || h < 7) ? 'sleep' : 'free';
-        }
-        state.schedule[date].china[20] = 'available';
-        state.schedule[date].china[21] = 'available';
-        state.schedule[date].london[12] = 'available';
-        state.schedule[date].london[13] = 'available';
-        state.schedule[date].london[20] = 'available';
-      }
+    // 把日期换算成星期几的 key（用年月日数字自己构造 Date，不用把整串日期字符串丢给 new Date()，
+    // 避免因为时区解析被错误地挪到前一天/后一天）
+    function weekdayKeyOf(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dow = new Date(y, m - 1, d).getDay(); // 0=周日 ... 6=周六
+      return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dow];
+    }
+
+    // 某一天某一栏某一小时「实际应该显示的状态」：
+    // 如果这个具体的格子被手动改过（state.schedule[date][who][hour] 有值），就用那个手动值；
+    // 否则实时去读「每周模板」当天对应星期的默认值——这样模板改了之后，没被手动改过的格子会立刻跟着变，
+    // 不需要等到某个"从没打开过的未来日期"才生效（这是之前那版的 bug：只要某一天被打开过、
+    // 系统已经把整天 24 小时的值都写死存进 state.schedule 了，之后再怎么改模板，这一天都不会再跟着变）。
+    function getEffectiveScheduleStatus(date, who, hour) {
+      const day = state.schedule[date];
+      if (day && day[who] && day[who][hour] !== undefined) return day[who][hour];
+      if (!state.scheduleTemplate) state.scheduleTemplate = buildDefaultTemplate();
+      const tmplDay = state.scheduleTemplate[weekdayKeyOf(date)] || buildDefaultDayTemplate();
+      return (tmplDay[who] && tmplDay[who][hour]) || 'free';
+    }
+
+    // 只保证这一天的容器结构存在（不预先把 24 小时的值都填满），方便 toggleSchedule 写入单个格子的手动覆盖值
+    function ensureScheduleDayShell(date) {
+      if (!state.schedule[date]) state.schedule[date] = { china: {}, london: {} };
+      if (!state.schedule[date].china) state.schedule[date].china = {};
+      if (!state.schedule[date].london) state.schedule[date].london = {};
     }
 
     function renderSchedule() {
       const date = getScheduleDate();
-      ensureSchedule(date);
       document.getElementById('schedule-day-label').textContent =
         (scheduleOffset === 0 ? '今天 ' : scheduleOffset === 1 ? '明天 ' : scheduleOffset === -1 ? '昨天 ' : '') + date;
       const grid = document.getElementById('schedule-grid');
       grid.innerHTML = '';
-      const sch = state.schedule[date];
       const p = getLoc('panzi');
       const g = getLoc('guozi');
       // 以小盘子本地 0-23 点为行，计算对应的小果子本地小时
@@ -998,23 +1302,31 @@
           }
         }
 
-        let cStatus = sch.china[localH] || 'free';
-        let lStatus = sch.london[guoziH] || 'free';
+        let cStatus = getEffectiveScheduleStatus(date, 'china', localH);
+        let lStatus = getEffectiveScheduleStatus(date, 'london', guoziH);
         if (cStatus === 'available' && lStatus === 'available') { cStatus = 'call'; lStatus = 'call'; }
+        const myCol = myScheduleColumn();
+        const cCell = myCol === 'china'
+          ? `<div class="schedule-slot rounded-lg ${statusColors[cStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700" onclick="toggleSchedule('${date}','china',${localH})">${statusLabels[cStatus]}</div>`
+          : `<div class="rounded-lg ${statusColors[cStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700 opacity-60 cursor-not-allowed" title="这一栏只有对方能修改">${statusLabels[cStatus]}</div>`;
+        const lCell = myCol === 'london'
+          ? `<div class="schedule-slot rounded-lg ${statusColors[lStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700" onclick="toggleSchedule('${date}','london',${guoziH})">${statusLabels[lStatus]}</div>`
+          : `<div class="rounded-lg ${statusColors[lStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700 opacity-60 cursor-not-allowed" title="这一栏只有对方能修改">${statusLabels[lStatus]}</div>`;
         const row = document.createElement('div');
         row.className = 'grid grid-cols-[52px_1fr_1fr_52px] gap-1';
         row.innerHTML = `
           <div class="text-[11px] text-zinc-500 text-center py-1 tabular-nums font-medium">${String(localH).padStart(2,'0')}:00</div>
-          <div class="schedule-slot rounded-lg ${statusColors[cStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700" onclick="toggleSchedule('${date}','china',${localH})">${statusLabels[cStatus]}</div>
-          <div class="schedule-slot rounded-lg ${statusColors[lStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700" onclick="toggleSchedule('${date}','london',${guoziH})">${statusLabels[lStatus]}</div>
+          ${cCell}
+          ${lCell}
           <div class="text-[11px] text-zinc-500 text-center py-1 tabular-nums font-medium">${String(guoziH).padStart(2,'0')}:00</div>`;
         grid.appendChild(row);
       }
     }
 
     function toggleSchedule(date, who, hour) {
-      ensureSchedule(date);
-      const cur = state.schedule[date][who][hour] || 'free';
+      if (who !== myScheduleColumn()) return; // 防御性检查：网页端不允许改对方那一列，即使被别的代码路径意外调用也会被这里拦下
+      ensureScheduleDayShell(date);
+      const cur = getEffectiveScheduleStatus(date, who, hour);
       state.schedule[date][who][hour] = statusCycle[(statusCycle.indexOf(cur) + 1) % statusCycle.length];
       emitEvent('schedule', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 更新了时间表');
       saveState();
@@ -1024,6 +1336,79 @@
     function changeScheduleDay(delta) {
       scheduleOffset += delta;
       renderSchedule();
+    }
+
+    // ===================== 每周模板编辑器 =====================
+    let templateEditorDay = 'mon';
+    const weekdayLabels = { mon: '周一', tue: '周二', wed: '周三', thu: '周四', fri: '周五', sat: '周六', sun: '周日' };
+
+    function openScheduleTemplateEditor() {
+      if (!state.scheduleTemplate) state.scheduleTemplate = buildDefaultTemplate();
+      document.getElementById('template-editor-overlay').classList.remove('hidden');
+      renderTemplateTabs();
+      renderTemplateEditor();
+    }
+
+    function closeScheduleTemplateEditor() {
+      document.getElementById('template-editor-overlay').classList.add('hidden');
+    }
+
+    function renderTemplateTabs() {
+      const tabs = document.getElementById('template-day-tabs');
+      tabs.innerHTML = '';
+      Object.keys(weekdayLabels).forEach(key => {
+        const btn = document.createElement('button');
+        btn.textContent = weekdayLabels[key];
+        btn.onclick = () => switchTemplateDay(key);
+        btn.className = key === templateEditorDay
+          ? 'px-3 py-1.5 rounded-full bg-violet-500 text-white font-medium'
+          : 'px-3 py-1.5 rounded-full bg-soft-100 text-zinc-600 hover:bg-soft-200';
+        tabs.appendChild(btn);
+      });
+    }
+
+    function switchTemplateDay(key) {
+      templateEditorDay = key;
+      renderTemplateTabs();
+      renderTemplateEditor();
+    }
+
+    function renderTemplateEditor() {
+      if (!state.scheduleTemplate) state.scheduleTemplate = buildDefaultTemplate();
+      if (!state.scheduleTemplate[templateEditorDay]) state.scheduleTemplate[templateEditorDay] = buildDefaultDayTemplate();
+      const day = state.scheduleTemplate[templateEditorDay];
+      const grid = document.getElementById('template-grid');
+      grid.innerHTML = '';
+      const myCol = myScheduleColumn();
+      for (let h = 0; h < 24; h++) {
+        let cStatus = day.china[h] || 'free';
+        let lStatus = day.london[h] || 'free';
+        if (cStatus === 'available' && lStatus === 'available') { cStatus = 'call'; lStatus = 'call'; }
+        const cCell = myCol === 'china'
+          ? `<div class="schedule-slot rounded-lg ${statusColors[cStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700" onclick="toggleTemplateSlot('${templateEditorDay}','china',${h})">${statusLabels[cStatus]}</div>`
+          : `<div class="rounded-lg ${statusColors[cStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700 opacity-60 cursor-not-allowed" title="这一栏只有对方能修改">${statusLabels[cStatus]}</div>`;
+        const lCell = myCol === 'london'
+          ? `<div class="schedule-slot rounded-lg ${statusColors[lStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700" onclick="toggleTemplateSlot('${templateEditorDay}','london',${h})">${statusLabels[lStatus]}</div>`
+          : `<div class="rounded-lg ${statusColors[lStatus]} flex items-center justify-center text-[10px] font-medium text-zinc-700 opacity-60 cursor-not-allowed" title="这一栏只有对方能修改">${statusLabels[lStatus]}</div>`;
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-[52px_1fr_1fr] gap-1';
+        row.innerHTML = `
+          <div class="text-[11px] text-zinc-500 text-center py-1 tabular-nums font-medium">${String(h).padStart(2,'0')}:00</div>
+          ${cCell}
+          ${lCell}`;
+        grid.appendChild(row);
+      }
+    }
+
+    function toggleTemplateSlot(day, who, hour) {
+      if (who !== myScheduleColumn()) return; // 防御性检查：不允许改对方那一列的模板
+      if (!state.scheduleTemplate) state.scheduleTemplate = buildDefaultTemplate();
+      if (!state.scheduleTemplate[day]) state.scheduleTemplate[day] = buildDefaultDayTemplate();
+      const cur = state.scheduleTemplate[day][who][hour] || 'free';
+      state.scheduleTemplate[day][who][hour] = statusCycle[(statusCycle.indexOf(cur) + 1) % statusCycle.length];
+      emitEvent('schedule_template', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ` 更新了每周模板（${weekdayLabels[day]}）`);
+      saveState();
+      renderTemplateEditor();
     }
 
     function searchAndOpenMusic() {
@@ -1050,8 +1435,8 @@
         document.getElementById('now-playing-title').textContent = playing.title;
         const qq = document.getElementById('open-qq');
         const apple = document.getElementById('open-apple');
-        if (playing.qq) { qq.href = playing.qq; qq.classList.remove('hidden'); } else qq.classList.add('hidden');
-        if (playing.apple) { apple.href = playing.apple; apple.classList.remove('hidden'); } else apple.classList.add('hidden');
+        if (playing.qq) { qq.href = safeUrl(playing.qq); qq.classList.remove('hidden'); } else qq.classList.add('hidden');
+        if (playing.apple) { apple.href = safeUrl(playing.apple); apple.classList.remove('hidden'); } else apple.classList.add('hidden');
       } else {
         document.getElementById('now-playing-title').textContent = '还没有选择歌曲';
         document.getElementById('open-qq').classList.add('hidden');
@@ -1062,9 +1447,9 @@
         el.className = `flex items-center gap-2 p-2 rounded-xl ${t.playing ? 'bg-pink-50 border border-pink-200' : 'hover:bg-soft-50'} transition`;
         el.innerHTML = `
           <button onclick="setPlaying(${t.id})" class="text-lg">${t.playing ? '🔊' : '▶️'}</button>
-          <span class="flex-1 text-sm truncate">${t.title}</span>
-          ${t.qq ? `<a href="${t.qq}" target="_blank" class="text-xs text-green-600 hover:underline">QQ</a>` : ''}
-          ${t.apple ? `<a href="${t.apple}" target="_blank" class="text-xs text-zinc-600 hover:underline">Apple</a>` : ''}
+          <span class="flex-1 text-sm truncate">${escapeHtml(t.title)}</span>
+          ${t.qq ? `<a href="${escapeHtml(safeUrl(t.qq))}" target="_blank" rel="noopener" class="text-xs text-green-600 hover:underline">QQ</a>` : ''}
+          ${t.apple ? `<a href="${escapeHtml(safeUrl(t.apple))}" target="_blank" rel="noopener" class="text-xs text-zinc-600 hover:underline">Apple</a>` : ''}
           <button onclick="removeTrack(${t.id})" class="text-zinc-400 hover:text-red-400 text-sm">×</button>`;
         list.appendChild(el);
       });
@@ -1133,9 +1518,71 @@
         const el = document.createElement('div');
         el.className = 'flex justify-between items-center py-1.5 border-b border-pink-50';
         const h = Math.floor(c.minutes / 60), m = c.minutes % 60;
-        el.innerHTML = `<span class="text-zinc-600">${c.date}</span><span class="font-medium text-pink-600">${h > 0 ? h + 'h ' : ''}${m}m <span class="text-zinc-400 text-xs">via 微信</span></span><button onclick="removeCall(${c.id})" class="text-zinc-300 hover:text-red-400 text-xs">删除</button>`;
+        el.innerHTML = `<span class="text-zinc-600">${escapeHtml(c.date)}</span><span class="font-medium text-pink-600">${h > 0 ? h + 'h ' : ''}${m}m</span><button onclick="removeCall(${c.id})" class="text-zinc-300 hover:text-red-400 text-xs">删除</button>`;
         list.appendChild(el);
       });
+    }
+
+    // ===================== 通话计时器 =====================
+    // 网页没有权限读取微信/系统电话记录，做不到「真正的自动记录」；
+    // 这是退而求其次的方案：通话时手动点开始/结束，计时器自动算好分钟数并直接记录，
+    // 比自己盯着时间心算、再手动输入数字要方便。计时状态存在本机 localStorage，只是为了刷新页面不丢失，不需要同步到云端。
+    let callTimerInterval = null;
+    const CALL_TIMER_KEY = 'ldr_call_timer_start';
+
+    function updateCallTimerDisplay() {
+      const startStr = localStorage.getItem(CALL_TIMER_KEY);
+      const disp = document.getElementById('call-timer-display');
+      if (!startStr || !disp) return;
+      const elapsedSec = Math.max(0, Math.floor((Date.now() - parseInt(startStr, 10)) / 1000));
+      const m = Math.floor(elapsedSec / 60), s = elapsedSec % 60;
+      disp.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function setCallTimerUIRunning(running) {
+      const btn = document.getElementById('call-timer-btn');
+      const disp = document.getElementById('call-timer-display');
+      if (!btn || !disp) return;
+      if (running) {
+        btn.textContent = '⏹ 结束并记录通话';
+        btn.classList.remove('bg-pink-500', 'hover:bg-pink-600');
+        btn.classList.add('bg-red-400', 'hover:bg-red-500');
+        disp.classList.remove('hidden');
+      } else {
+        btn.textContent = '⏱ 开始通话计时';
+        btn.classList.remove('bg-red-400', 'hover:bg-red-500');
+        btn.classList.add('bg-pink-500', 'hover:bg-pink-600');
+        disp.classList.add('hidden');
+      }
+    }
+
+    function toggleCallTimer() {
+      const running = !!localStorage.getItem(CALL_TIMER_KEY);
+      if (!running) {
+        localStorage.setItem(CALL_TIMER_KEY, String(Date.now()));
+        setCallTimerUIRunning(true);
+        updateCallTimerDisplay();
+        callTimerInterval = setInterval(updateCallTimerDisplay, 1000);
+      } else {
+        const start = parseInt(localStorage.getItem(CALL_TIMER_KEY), 10);
+        localStorage.removeItem(CALL_TIMER_KEY);
+        if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
+        setCallTimerUIRunning(false);
+        const elapsedMin = Math.max(1, Math.round((Date.now() - start) / 60000));
+        document.getElementById('call-date').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('call-hours').value = Math.floor(elapsedMin / 60) || '';
+        document.getElementById('call-mins').value = elapsedMin % 60;
+        addCall(); // 自动记录，不用再手动点一次
+      }
+    }
+
+    // 如果计时中途刷新了页面，恢复计时器的显示状态（开始时间还存在 localStorage 里）
+    function resumeCallTimerIfRunning() {
+      if (localStorage.getItem(CALL_TIMER_KEY)) {
+        setCallTimerUIRunning(true);
+        updateCallTimerDisplay();
+        callTimerInterval = setInterval(updateCallTimerDisplay, 1000);
+      }
     }
 
     function addCall() {
@@ -1176,7 +1623,7 @@
         const catIcon = { movies: '🎬', books: '📚', places: '📍', other: '✨' }[t.cat];
         el.innerHTML = `
           <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTodo(${t.id})" class="w-5 h-5 rounded accent-pink-500 cursor-pointer">
-          <span class="todo-text flex-1 text-sm ${t.done ? 'text-zinc-400' : 'text-zinc-700'}">${catIcon} ${t.text}</span>
+          <span class="todo-text flex-1 text-sm ${t.done ? 'text-zinc-400' : 'text-zinc-700'}">${catIcon} ${escapeHtml(t.text)}</span>
           <span class="text-xs ${pColor}">${t.priority === 'high' ? '!!!' : t.priority === 'medium' ? '!!' : '!'}</span>
           <button onclick="removeTodo(${t.id})" class="text-zinc-300 hover:text-red-400 text-sm">×</button>`;
         list.appendChild(el);
@@ -1220,6 +1667,85 @@
       renderTodos();
     }
 
+    // ===================== 各自代办（互相监督，对方只能看不能改） =====================
+    function renderPersonalTodos() {
+      if (!state.personalTodos) state.personalTodos = { panzi: [], guozi: [] };
+      const isPanzi = myIdentity === 'panzi';
+      const myKey = isPanzi ? 'panzi' : 'guozi';
+      const partnerKey = isPanzi ? 'guozi' : 'panzi';
+      const myLabel = isPanzi ? '🇨🇳 我的代办（小盘子）' : '🇬🇧 我的代办（小果子）';
+      const partnerLabel = isPanzi ? '🇬🇧 对方的代办（小果子）' : '🇨🇳 对方的代办（小盘子）';
+      const myLabelEl = document.getElementById('personal-todo-my-label');
+      const partnerLabelEl = document.getElementById('personal-todo-partner-label');
+      if (myLabelEl) myLabelEl.textContent = myLabel;
+      if (partnerLabelEl) partnerLabelEl.textContent = partnerLabel;
+
+      const myList = state.personalTodos[myKey] || [];
+      const partnerList = state.personalTodos[partnerKey] || [];
+
+      const myListEl = document.getElementById('personal-todo-my-list');
+      if (myListEl) {
+        if (!myList.length) {
+          myListEl.innerHTML = '<div class="text-zinc-400 text-xs">还没有代办，添加一条给自己吧～</div>';
+        } else {
+          myListEl.innerHTML = myList.map(t => `
+            <div class="flex items-center gap-2 text-sm">
+              <input type="checkbox" ${t.done ? 'checked' : ''} onchange="togglePersonalTodo(${t.id})" class="w-4 h-4 rounded accent-pink-500 cursor-pointer">
+              <span class="flex-1 ${t.done ? 'line-through text-zinc-400' : 'text-zinc-700'}">${escapeHtml(t.text)}</span>
+              <button onclick="removePersonalTodo(${t.id})" class="text-zinc-300 hover:text-red-400 text-xs">×</button>
+            </div>`).join('');
+        }
+      }
+
+      const partnerListEl = document.getElementById('personal-todo-partner-list');
+      if (partnerListEl) {
+        if (!partnerList.length) {
+          partnerListEl.innerHTML = '<div class="text-zinc-400 text-xs">对方还没有添加代办</div>';
+        } else {
+          // 对方的列表：checkbox 加 disabled，没有删除按钮，也没有 onclick——只能看
+          partnerListEl.innerHTML = partnerList.map(t => `
+            <div class="flex items-center gap-2 text-sm">
+              <input type="checkbox" ${t.done ? 'checked' : ''} disabled class="w-4 h-4 rounded accent-violet-400 opacity-70 cursor-not-allowed">
+              <span class="flex-1 ${t.done ? 'line-through text-zinc-400' : 'text-zinc-600'}">${escapeHtml(t.text)}</span>
+            </div>`).join('');
+        }
+      }
+    }
+
+    function addPersonalTodo() {
+      const input = document.getElementById('new-personal-todo');
+      const text = input.value.trim();
+      if (!text) return;
+      if (!state.personalTodos) state.personalTodos = { panzi: [], guozi: [] };
+      const myKey = myIdentity === 'panzi' ? 'panzi' : 'guozi';
+      if (!Array.isArray(state.personalTodos[myKey])) state.personalTodos[myKey] = [];
+      state.personalTodos[myKey].push({ id: Date.now(), text, done: false });
+      input.value = '';
+      emitEvent('personal_todo', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 给自己加了一条代办');
+      saveState();
+      renderPersonalTodos();
+    }
+
+    // 只在「我自己」这个 key 对应的数组里查找和修改——即使被意外用对方的 id 调用，
+    // 因为 id 属于对方的数组，在自己的数组里根本找不到，天然不会改到对方的数据。
+    function togglePersonalTodo(id) {
+      const myKey = myIdentity === 'panzi' ? 'panzi' : 'guozi';
+      const list = (state.personalTodos && state.personalTodos[myKey]) || [];
+      const item = list.find(t => t.id === id);
+      if (!item) return;
+      item.done = !item.done;
+      saveState();
+      renderPersonalTodos();
+    }
+
+    function removePersonalTodo(id) {
+      const myKey = myIdentity === 'panzi' ? 'panzi' : 'guozi';
+      if (!state.personalTodos || !Array.isArray(state.personalTodos[myKey])) return;
+      state.personalTodos[myKey] = state.personalTodos[myKey].filter(t => t.id !== id);
+      saveState();
+      renderPersonalTodos();
+    }
+
     function renderThoughts() {
       const list = document.getElementById('thought-list');
       if (!list) return;
@@ -1234,12 +1760,18 @@
         const time = new Date(t.time).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         return `<div class="rounded-xl border border-pink-100 bg-white/70 p-3">
           <div class="flex items-center justify-between mb-1">
-            <span class="text-xs font-medium ${whoColor}">${whoName} · ${t.mood}</span>
+            <span class="text-xs font-medium ${whoColor}">${whoName} · ${escapeHtml(t.mood)}</span>
             <span class="text-[11px] text-zinc-400">${time}</span>
           </div>
           <div class="text-sm text-zinc-700 whitespace-pre-wrap break-words">${escapeHtml(t.text)}</div>
         </div>`;
       }).join('');
+    }
+
+    // 只允许 http/https 链接，防止有人在歌曲链接里塞 javascript: 之类的伪协议
+    function safeUrl(url) {
+      const cleaned = String(url || '').replace(/[\s\u0000-\u001F]/g, '');
+      return /^https?:\/\//i.test(cleaned) ? url : '#';
     }
 
     function escapeHtml(str) {
@@ -1251,9 +1783,25 @@
         .replaceAll("'", '&#39;');
     }
 
+    function toggleCustomMoodInput() {
+      const select = document.getElementById('new-thought-mood');
+      const customInput = document.getElementById('new-thought-mood-custom');
+      if (select.value === 'custom') {
+        customInput.classList.remove('hidden');
+        customInput.focus();
+      } else {
+        customInput.classList.add('hidden');
+      }
+    }
+
     function addThought() {
       const input = document.getElementById('new-thought-text');
-      const mood = document.getElementById('new-thought-mood').value;
+      const select = document.getElementById('new-thought-mood');
+      let mood = select.value;
+      if (mood === 'custom') {
+        mood = document.getElementById('new-thought-mood-custom').value.trim();
+        if (!mood) return alert('请输入自定义心情，或者选一个现成的');
+      }
       const text = input.value.trim();
       if (!text) return;
       if (!state.thoughts) state.thoughts = [];
@@ -1266,6 +1814,9 @@
       });
       state.thoughts = state.thoughts.slice(0, 80);
       input.value = '';
+      document.getElementById('new-thought-mood-custom').value = '';
+      document.getElementById('new-thought-mood-custom').classList.add('hidden');
+      select.value = '💗 开心';
       emitEvent('thought', (myIdentity === 'panzi' ? '小盘子' : '小果子') + ' 发布了新想法');
       saveState();
       renderThoughts();
@@ -1275,10 +1826,12 @@
       updateLocationLabels();
       updateMissYouUI();
       renderDailyQuestion();
+      renderCustomQuestionList();
       renderSchedule();
       renderPlaylist();
       renderCalls();
       renderTodos();
+      renderPersonalTodos();
       renderThoughts();
       updateCountdowns();
       updateIdentityUI();
@@ -1288,7 +1841,12 @@
 
     function init() {
       registerSW();
+      if (!myIdentity) {
+        const overlay = document.getElementById('identity-onboarding');
+        if (overlay) overlay.classList.remove('hidden');
+      }
       updateIdentityUI();
+      resumeCallTimerIfRunning();
       updateClocks();
       setInterval(updateClocks, 1000);
       fetchWeather();
@@ -1324,7 +1882,11 @@
     window.enableNotifications = async function() {
       const ok = await requestNotifyPermission();
       if (ok) {
-        alert('通知已开启！对方更新时你会收到提醒。\n\n建议再把网页「添加到主屏幕」当成 App 使用。');
+        await setupPushToken();
+        const closedAppNote = isPushConfigured()
+          ? '现在网站完全关闭也能收到对方的更新提醒。'
+          : '目前还只能在网页打开着（前台或后台）的时候收到提醒；如果配置了推送服务器，网站完全关闭也能收到。';
+        alert('通知已开启！对方更新时你会收到提醒。\n\n' + closedAppNote + '\n\n建议再把网页「添加到主屏幕」当成 App 使用。');
         showLocalNotification('我们的小窝', '通知已开启 💕', 'test');
       } else {
         alert('通知权限未开启。请在手机设置里允许此网页发送通知。');
